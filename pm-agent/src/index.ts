@@ -4,6 +4,8 @@ import { startTelegramBot, sendNotification } from "./approval/telegram-bot.js";
 import { startScheduler, stopScheduler } from "./scheduler.js";
 import { stateStore } from "./state/store.js";
 import { getAuthMethod, getAnthropicApiKey } from "./auth.js";
+import { GitHubCacheService } from "./services/github-cache.service.js";
+import { initGitHubCache } from "./tools/github.js";
 
 async function main(): Promise<void> {
   console.log("🚀 Starting Envision CEO...\n");
@@ -40,6 +42,22 @@ async function main(): Promise<void> {
   console.log(`   Projects: ${stats.projectCount}`);
   console.log(`   Tasks: ${stats.taskCount}`);
   console.log(`   Pending actions: ${stats.pendingActionsCount}\n`);
+
+  // Initialize GitHub cache service
+  const deps = stateStore.getRepositoryDeps();
+  if (deps) {
+    const githubCache = new GitHubCacheService(deps.cache, {
+      enabled: process.env.GITHUB_CACHE_ENABLED !== "false",
+      defaultTTL: parseInt(process.env.GITHUB_CACHE_TTL || "300", 10),
+      repoStatusTTL: parseInt(process.env.GITHUB_CACHE_REPO_STATUS_TTL || "300", 10),
+      issueListTTL: parseInt(process.env.GITHUB_CACHE_ISSUE_LIST_TTL || "180", 10),
+      prListTTL: parseInt(process.env.GITHUB_CACHE_PR_LIST_TTL || "180", 10),
+      workflowRunTTL: parseInt(process.env.GITHUB_CACHE_WORKFLOW_RUN_TTL || "120", 10),
+      issueInfoTTL: parseInt(process.env.GITHUB_CACHE_ISSUE_INFO_TTL || "300", 10),
+    });
+    initGitHubCache(githubCache);
+    console.log(`🔄 GitHub cache initialized (enabled: ${process.env.GITHUB_CACHE_ENABLED !== "false"})\n`);
+  }
 
   // Start components
   try {
