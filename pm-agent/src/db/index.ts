@@ -226,26 +226,63 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     setSchemaVersion(sqlite, 6, "Update kanban_status constraint to support all statuses");
   }
 
-  // Migration v6 -> v7: Add task_dependencies table
+  // Migration v6 -> v7: Add team members and task assignment
   if (fromVersion < 7) {
-    console.log("Running migration v7: Add task_dependencies table");
+    console.log("Running migration v7: Add team members and task assignment");
 
+    // Add team_members table
     sqlite.exec(`
-      CREATE TABLE IF NOT EXISTS task_dependencies (
-        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-        type TEXT NOT NULL DEFAULT 'depends_on' CHECK (type IN ('depends_on', 'blocks')),
-        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
-        PRIMARY KEY (task_id, depends_on_task_id),
-        CHECK (task_id != depends_on_task_id)
+      CREATE TABLE IF NOT EXISTS team_members (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        github_username TEXT,
+        telegram_username TEXT,
+        role TEXT NOT NULL DEFAULT 'developer' CHECK (role IN ('owner', 'admin', 'developer', 'designer', 'qa', 'viewer')),
+        avatar_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       );
 
-      CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
-      CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
-      CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(type);
+      CREATE INDEX IF NOT EXISTS idx_team_members_role ON team_members(role);
+      CREATE INDEX IF NOT EXISTS idx_team_members_active ON team_members(is_active);
+      CREATE INDEX IF NOT EXISTS idx_team_members_github ON team_members(github_username);
+      CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(email);
     `);
 
-    setSchemaVersion(sqlite, 7, "Add task_dependencies table");
+    // Add project_team_members table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS project_team_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        member_id TEXT NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+        role TEXT CHECK (role IN ('owner', 'admin', 'developer', 'designer', 'qa', 'viewer')),
+        joined_at INTEGER NOT NULL,
+        UNIQUE(project_id, member_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_team_project ON project_team_members(project_id);
+      CREATE INDEX IF NOT EXISTS idx_project_team_member ON project_team_members(member_id);
+    `);
+
+    // Add assignment fields to tasks table
+    try {
+      sqlite.exec("ALTER TABLE tasks ADD COLUMN assigned_to TEXT REFERENCES team_members(id) ON DELETE SET NULL");
+    } catch {
+      // Column already exists
+    }
+    try {
+      sqlite.exec("ALTER TABLE tasks ADD COLUMN assigned_at INTEGER");
+    } catch {
+      // Column already exists
+    }
+
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+    `);
+
+    setSchemaVersion(sqlite, 7, "Add team members and task assignment");
   }
 }
 

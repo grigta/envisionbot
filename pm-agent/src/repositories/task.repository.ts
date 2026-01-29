@@ -22,6 +22,8 @@ interface TaskRow {
   completed_at: number | null;
   approved_by: Task["approvedBy"] | null;
   generated_by: Task["generatedBy"] | null;
+  assigned_to: string | null;
+  assigned_at: number | null;
   github_issue_number: number | null;
   github_issue_url: string | null;
   github_issue_state: "open" | "closed" | null;
@@ -59,6 +61,8 @@ export class TaskRepository extends BaseRepository<Task> {
       completedAt: row.completed_at ?? undefined,
       approvedBy: row.approved_by ?? undefined,
       generatedBy: row.generated_by ?? undefined,
+      assignedTo: row.assigned_to ?? undefined,
+      assignedAt: row.assigned_at ?? undefined,
       githubIssueNumber: row.github_issue_number ?? undefined,
       githubIssueUrl: row.github_issue_url ?? undefined,
       githubIssueState: row.github_issue_state ?? undefined,
@@ -222,6 +226,56 @@ export class TaskRepository extends BaseRepository<Task> {
   }
 
   /**
+   * Get tasks assigned to a specific team member
+   */
+  async getByAssignee(memberId: string): Promise<Task[]> {
+    const cacheKey = `pm:tasks:assignee:${memberId}`;
+    const cached = await this.getFromCache<Task[]>(cacheKey);
+    if (cached) return cached;
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM tasks
+      WHERE assigned_to = ?
+      ORDER BY CASE priority
+        WHEN 'critical' THEN 1
+        WHEN 'high' THEN 2
+        WHEN 'medium' THEN 3
+        WHEN 'low' THEN 4
+      END, generated_at DESC
+    `);
+
+    const rows = stmt.all(memberId) as TaskRow[];
+    const tasks = rows.map((row) => this.rowToTask(row));
+
+    await this.setCache(cacheKey, tasks, 60);
+    return tasks;
+  }
+
+  /**
+   * Assign task to a team member
+   */
+  async assignTask(taskId: string, memberId: string | null): Promise<Task | undefined> {
+    const task = await this.getById(taskId);
+    if (!task) return undefined;
+
+    const updatedTask = {
+      ...task,
+      assignedTo: memberId ?? undefined,
+      assignedAt: memberId ? Date.now() : undefined,
+    };
+
+    // Invalidate assignee caches
+    if (task.assignedTo) {
+      await this.invalidateCache(`pm:tasks:assignee:${task.assignedTo}`);
+    }
+    if (memberId) {
+      await this.invalidateCache(`pm:tasks:assignee:${memberId}`);
+    }
+
+    return this.upsert(updatedTask);
+  }
+
+  /**
    * Update specific fields of a task
    */
   async update(id: string, updates: Partial<Task>): Promise<Task | undefined> {
@@ -238,9 +292,10 @@ export class TaskRepository extends BaseRepository<Task> {
         id, project_id, type, priority, title, description, context,
         suggested_actions, related_issues, related_prs, status, kanban_status,
         generated_at, completed_at, approved_by, generated_by,
+        assigned_to, assigned_at,
         github_issue_number, github_issue_url, github_issue_state,
         github_issue_created_at, github_issue_synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         priority = excluded.priority,
@@ -254,6 +309,8 @@ export class TaskRepository extends BaseRepository<Task> {
         kanban_status = excluded.kanban_status,
         completed_at = excluded.completed_at,
         approved_by = excluded.approved_by,
+        assigned_to = excluded.assigned_to,
+        assigned_at = excluded.assigned_at,
         github_issue_number = excluded.github_issue_number,
         github_issue_url = excluded.github_issue_url,
         github_issue_state = excluded.github_issue_state,
@@ -278,6 +335,8 @@ export class TaskRepository extends BaseRepository<Task> {
       task.completedAt ?? null,
       task.approvedBy ?? null,
       task.generatedBy ?? null,
+      task.assignedTo ?? null,
+      task.assignedAt ?? null,
       task.githubIssueNumber ?? null,
       task.githubIssueUrl ?? null,
       task.githubIssueState ?? null,

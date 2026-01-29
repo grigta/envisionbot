@@ -947,154 +947,190 @@ export async function startServer(): Promise<void> {
   });
 
   // ============================================
-  // TASK DEPENDENCIES API
+  // TEAM MEMBER ENDPOINTS
   // ============================================
 
-  // Add a dependency to a task
-  fastify.post<{ Params: { id: string }; Body: schemas.AddTaskDependencyRequest }>(
-    "/api/tasks/:id/dependencies",
-    { preHandler: validateBody(schemas.AddTaskDependencySchema) },
+  // Get all team members
+  fastify.get("/api/team/members", async () => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+    return teamRepo.getAll();
+  });
+
+  // Get active team members only
+  fastify.get("/api/team/members/active", async () => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+    return teamRepo.getActive();
+  });
+
+  // Get team member by ID
+  fastify.get<{ Params: { id: string } }>("/api/team/members/:id", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+    const member = await teamRepo.getById(request.params.id);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+    return member;
+  });
+
+  // Create team member
+  fastify.post<{
+    Body: {
+      name: string;
+      email?: string;
+      githubUsername?: string;
+      telegramUsername?: string;
+      role?: string;
+      avatarUrl?: string;
+      isActive?: boolean;
+    };
+  }>("/api/team/members", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+
+    const { name, email, githubUsername, telegramUsername, role, avatarUrl, isActive } = request.body;
+
+    if (!name) {
+      return reply.status(400).send({ error: "Name is required" });
+    }
+
+    const member = {
+      id: crypto.randomUUID(),
+      name,
+      email,
+      githubUsername,
+      telegramUsername,
+      role: (role as any) || "developer",
+      avatarUrl,
+      isActive: isActive !== undefined ? isActive : true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const created = await teamRepo.upsert(member);
+    return reply.status(201).send(created);
+  });
+
+  // Update team member
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      email?: string;
+      githubUsername?: string;
+      telegramUsername?: string;
+      role?: string;
+      avatarUrl?: string;
+      isActive?: boolean;
+    };
+  }>("/api/team/members/:id", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+
+    const member = await teamRepo.update(request.params.id, request.body as any);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+    return member;
+  });
+
+  // Delete team member
+  fastify.delete<{ Params: { id: string } }>("/api/team/members/:id", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+
+    const success = await teamRepo.delete(request.params.id);
+    if (!success) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+    return { success: true };
+  });
+
+  // Get team members for a project
+  fastify.get<{ Params: { projectId: string } }>(
+    "/api/projects/:projectId/team",
     async (request, reply) => {
-      const { id } = request.params;
-      const { dependsOnTaskId, type } = request.body;
-
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
-      }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const result = await taskRepo.addDependency(id, dependsOnTaskId, type);
-
-      if (!result.success) {
-        return reply.status(400).send({ error: result.error });
-      }
-
-      broadcast({
-        type: "task_updated",
-        timestamp: Date.now(),
-        data: { taskId: id, action: "dependency_added" },
-      });
-
-      return reply.send({ success: true });
+      await stateStore.waitForInit();
+      const teamRepo = stateStore.teamMemberRepository;
+      return teamRepo.getByProjectId(request.params.projectId);
     }
   );
 
-  // Remove a dependency from a task
-  fastify.delete<{ Params: { id: string; dependsOnTaskId: string } }>(
-    "/api/tasks/:id/dependencies/:dependsOnTaskId",
-    async (request, reply) => {
-      const { id, dependsOnTaskId } = request.params;
+  // Add team member to project
+  fastify.post<{
+    Params: { projectId: string };
+    Body: { memberId: string; role?: string };
+  }>("/api/projects/:projectId/team", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
 
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
-      }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const success = await taskRepo.removeDependency(id, dependsOnTaskId);
-
-      if (!success) {
-        return reply.status(404).send({ error: "Dependency not found" });
-      }
-
-      broadcast({
-        type: "task_updated",
-        timestamp: Date.now(),
-        data: { taskId: id, action: "dependency_removed" },
-      });
-
-      return reply.send({ success: true });
+    const { memberId, role } = request.body;
+    if (!memberId) {
+      return reply.status(400).send({ error: "memberId is required" });
     }
-  );
 
-  // Get dependencies for a task (tasks this task depends on)
-  fastify.get<{ Params: { id: string } }>(
-    "/api/tasks/:id/dependencies",
-    async (request, reply) => {
-      const { id } = request.params;
-
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
-      }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const dependencies = await taskRepo.getDependencies(id);
-      return reply.send(dependencies);
+    // Verify member exists
+    const member = await teamRepo.getById(memberId);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
     }
-  );
 
-  // Get dependents for a task (tasks that depend on this task)
-  fastify.get<{ Params: { id: string } }>(
-    "/api/tasks/:id/dependents",
-    async (request, reply) => {
-      const { id } = request.params;
+    await teamRepo.addToProject(request.params.projectId, memberId, role as any);
+    return { success: true };
+  });
 
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
+  // Remove team member from project
+  fastify.delete<{
+    Params: { projectId: string; memberId: string };
+  }>("/api/projects/:projectId/team/:memberId", async (request, reply) => {
+    await stateStore.waitForInit();
+    const teamRepo = stateStore.teamMemberRepository;
+
+    await teamRepo.removeFromProject(request.params.projectId, request.params.memberId);
+    return { success: true };
+  });
+
+  // ============================================
+  // TASK ASSIGNMENT ENDPOINTS
+  // ============================================
+
+  // Assign task to team member
+  fastify.post<{
+    Params: { taskId: string };
+    Body: { memberId: string | null };
+  }>("/api/tasks/:taskId/assign", async (request, reply) => {
+    await stateStore.waitForInit();
+    const taskRepo = stateStore.taskRepository;
+
+    const { memberId } = request.body;
+
+    // If memberId is provided, verify it exists
+    if (memberId) {
+      const teamRepo = stateStore.teamMemberRepository;
+      const member = await teamRepo.getById(memberId);
+      if (!member) {
+        return reply.status(404).send({ error: "Team member not found" });
       }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const dependents = await taskRepo.getDependents(id);
-      return reply.send(dependents);
     }
-  );
 
-  // Get task with full dependency information
-  fastify.get<{ Params: { id: string } }>(
-    "/api/tasks/:id/with-dependencies",
-    async (request, reply) => {
-      const { id } = request.params;
-
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
-      }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const task = await taskRepo.getTaskWithDependencies(id);
-
-      if (!task) {
-        return reply.status(404).send({ error: "Task not found" });
-      }
-
-      return reply.send(task);
+    const task = await taskRepo.assignTask(request.params.taskId, memberId);
+    if (!task) {
+      return reply.status(404).send({ error: "Task not found" });
     }
-  );
 
-  // Check if dependencies are met for a task
-  fastify.get<{ Params: { id: string } }>(
-    "/api/tasks/:id/dependencies-met",
+    broadcast({ type: "task_updated", timestamp: Date.now(), data: { task } });
+    return task;
+  });
+
+  // Get tasks assigned to a team member
+  fastify.get<{ Params: { memberId: string } }>(
+    "/api/team/members/:memberId/tasks",
     async (request, reply) => {
-      const { id } = request.params;
-
-      const deps = stateStore.getRepositoryDeps();
-      if (!deps) {
-        return reply.status(500).send({ error: "Database not initialized" });
-      }
-
-      const { TaskRepository } = await import("./repositories/task.repository.js");
-      const taskRepo = new TaskRepository(deps);
-
-      const task = await taskRepo.getById(id);
-      if (!task) {
-        return reply.status(404).send({ error: "Task not found" });
-      }
-
-      const met = await taskRepo.areDependenciesMet(id);
-      return reply.send({ dependenciesMet: met });
+      await stateStore.waitForInit();
+      const taskRepo = stateStore.taskRepository;
+      return taskRepo.getByAssignee(request.params.memberId);
     }
   );
 

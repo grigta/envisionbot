@@ -36,6 +36,9 @@ export interface Task {
   completedAt?: number;
   approvedBy?: "telegram" | "web" | "auto";
   generatedBy?: GeneratedBy;
+  // Task Assignment
+  assignedTo?: string; // team member ID
+  assignedAt?: number;
   // GitHub Issue Integration
   githubIssueNumber?: number;
   githubIssueUrl?: string;
@@ -130,6 +133,30 @@ export interface Finding {
   title: string;
   description: string;
   projectId: string;
+}
+
+// Team member types
+export interface TeamMember {
+  id: string;
+  name: string;
+  email?: string;
+  githubUsername?: string;
+  telegramUsername?: string;
+  role: TeamMemberRole;
+  avatarUrl?: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TeamMemberRole = "owner" | "admin" | "developer" | "designer" | "qa" | "viewer";
+
+export interface ProjectTeamMember {
+  id: number;
+  projectId: string;
+  memberId: string;
+  role?: TeamMemberRole;
+  joinedAt: number;
 }
 
 // State store

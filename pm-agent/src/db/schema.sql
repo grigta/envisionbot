@@ -58,6 +58,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     generated_by TEXT CHECK (generated_by IS NULL OR generated_by IN ('health_check', 'deep_analysis', 'manual', 'chat', 'plan_sync')),
     plan_section_id TEXT,
     plan_item_index INTEGER,
+    -- Task Assignment
+    assigned_to TEXT REFERENCES team_members(id) ON DELETE SET NULL,
+    assigned_at INTEGER,
     -- GitHub Issue Integration
     github_issue_number INTEGER,
     github_issue_url TEXT,
@@ -72,6 +75,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_kanban_status ON tasks(kanban_status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_generated_at ON tasks(generated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_github_issue ON tasks(github_issue_number);
 CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_state ON tasks(github_issue_state);
 
@@ -606,32 +610,37 @@ CREATE INDEX IF NOT EXISTS idx_competitor_reports_type ON competitor_reports(rep
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_created ON competitor_reports(created_at DESC);
 
 -- ============================================
--- NOTIFICATION PREFERENCES TABLE
+-- TEAM MEMBERS TABLE (Task Assignment & Team Tracking)
 -- ============================================
-CREATE TABLE IF NOT EXISTS notification_preferences (
+CREATE TABLE IF NOT EXISTS team_members (
     id TEXT PRIMARY KEY,
-    access_code_id TEXT REFERENCES access_codes(id) ON DELETE CASCADE,
-    -- Email notifications
-    email_enabled INTEGER NOT NULL DEFAULT 0,
-    email_address TEXT,
-    -- Telegram notifications
-    telegram_enabled INTEGER NOT NULL DEFAULT 1,
-    telegram_chat_id TEXT,
-    -- Quiet hours
-    quiet_hours_enabled INTEGER NOT NULL DEFAULT 0,
-    quiet_hours_start TEXT, -- Format: "HH:MM" (e.g., "22:00")
-    quiet_hours_end TEXT, -- Format: "HH:MM" (e.g., "08:00")
-    quiet_hours_timezone TEXT DEFAULT 'UTC',
-    -- Notification filters
-    enabled_notification_types TEXT NOT NULL DEFAULT '[]', -- JSON array of notification types
-    minimum_priority TEXT NOT NULL DEFAULT 'low' CHECK (minimum_priority IN ('low', 'medium', 'high', 'critical')),
-    -- Metadata
+    name TEXT NOT NULL,
+    email TEXT,
+    github_username TEXT,
+    telegram_username TEXT,
+    role TEXT NOT NULL DEFAULT 'developer' CHECK (role IN ('owner', 'admin', 'developer', 'designer', 'qa', 'viewer')),
+    avatar_url TEXT,
+    is_active INTEGER NOT NULL DEFAULT 1,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_notification_prefs_access_code ON notification_preferences(access_code_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_role ON team_members(role);
+CREATE INDEX IF NOT EXISTS idx_team_members_active ON team_members(is_active);
+CREATE INDEX IF NOT EXISTS idx_team_members_github ON team_members(github_username);
+CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(email);
 
--- Default preferences (global fallback when access_code_id is NULL)
-INSERT OR IGNORE INTO notification_preferences (id, access_code_id, email_enabled, telegram_enabled, quiet_hours_enabled, minimum_priority, created_at, updated_at)
-VALUES ('default', NULL, 0, 1, 0, 'low', strftime('%s', 'now') * 1000, strftime('%s', 'now') * 1000);
+-- ============================================
+-- PROJECT TEAM MEMBERS TABLE (Many-to-many: Projects <-> Team Members)
+-- ============================================
+CREATE TABLE IF NOT EXISTS project_team_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    member_id TEXT NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+    role TEXT CHECK (role IN ('owner', 'admin', 'developer', 'designer', 'qa', 'viewer')),
+    joined_at INTEGER NOT NULL,
+    UNIQUE(project_id, member_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_team_project ON project_team_members(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_team_member ON project_team_members(member_id);
