@@ -1,0 +1,23 @@
+{
+  "projects": [
+    {
+      "id": "example-project",
+      "name": "Example Project",
+      "repo": "username/example-repo",
+      "phase": "mvp",
+      "monitoringLevel": "standard",
+      "goals": [
+        "Launch MVP by Q2 2026",
+        "Get 100 beta users"
+      ],
+      "focusAreas": ["ci-cd", "issues", "prs"],
+      "createdAt": 1706400000000,
+      "updatedAt": 1706400000000
+    }
+  ],
+  "settings": {
+    "healthCheckInterval": "4h",
+    "deepAnalysisTime": "09:00",
+    "timezone": "Europe/Moscow"
+  }
+}

@@ -1,0 +1,413 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "attention-dev",
+      "name": "Attention Dev",
+      "repo": "grigta/attention-dev",
+      "phase": "planning",
+      "monitoringLevel": "standard",
+      "goals": [],
+      "focusAreas": [],
+      "createdAt": 1769675094489,
+      "updatedAt": 1769675094489
+    },
+    {
+      "id": "attention-ai",
+      "name": "Attention Ai",
+      "repo": "grigta/attention-ai",
+      "phase": "planning",
+      "monitoringLevel": "standard",
+      "goals": [],
+      "focusAreas": [],
+      "createdAt": 1769675110192,
+      "updatedAt": 1769675110192
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-test-6",
+      "projectId": "attention-ai",
+      "type": "improvement",
+      "priority": "low",
+      "title": "Добавить кэширование запросов",
+      "description": "Реализовать кэширование ответов API для оптимизации расходов",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "not_started",
+      "generatedAt": 1769677600000,
+      "generatedBy": "chat"
+    },
+    {
+      "id": "task-test-5",
+      "projectId": "attention-ai",
+      "type": "security",
+      "priority": "critical",
+      "title": "Настроить безопасное хранение ключей",
+      "description": "Реализовать безопасное хранение API ключей через переменные окружения",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "not_started",
+      "generatedAt": 1769677500000,
+      "generatedBy": "health_check"
+    },
+    {
+      "id": "task-test-4",
+      "projectId": "attention-ai",
+      "type": "development",
+      "priority": "high",
+      "title": "Интегрировать OpenAI API",
+      "description": "Подключить API для генерации текста и анализа данных",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "backlog",
+      "generatedAt": 1769677400000,
+      "generatedBy": "deep_analysis"
+    },
+    {
+      "id": "task-test-3",
+      "projectId": "attention-dev",
+      "type": "documentation",
+      "priority": "medium",
+      "title": "Написать README",
+      "description": "Добавить описание проекта, инструкции по установке и использованию",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "not_started",
+      "generatedAt": 1769677300000,
+      "generatedBy": "health_check"
+    },
+    {
+      "id": "task-test-2",
+      "projectId": "attention-dev",
+      "type": "planning",
+      "priority": "critical",
+      "title": "Определить архитектуру проекта",
+      "description": "Спроектировать структуру папок, модули и основные компоненты системы",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "backlog",
+      "generatedAt": 1769677200000,
+      "generatedBy": "deep_analysis"
+    },
+    {
+      "id": "task-test-1",
+      "projectId": "attention-dev",
+      "type": "development",
+      "priority": "high",
+      "title": "Настроить CI/CD pipeline",
+      "description": "Создать GitHub Actions workflow для автоматического тестирования и деплоя",
+      "context": "Test task for Kanban demo",
+      "suggestedActions": [],
+      "relatedIssues": [],
+      "relatedPRs": [],
+      "status": "pending",
+      "kanbanStatus": "not_started",
+      "generatedAt": 1769677100000,
+      "generatedBy": "manual"
+    }
+  ],
+  "pendingActions": [],
+  "metrics": [],
+  "reports": [
+    {
+      "id": "report-1769677522976",
+      "type": "health_check",
+      "projectIds": [
+        "attention-dev",
+        "attention-ai"
+      ],
+      "startedAt": 1769677522976,
+      "summary": "Both projects are in early planning phase with minimal activity. No open issues, PRs, or CI/CD runs detected.",
+      "findings": [
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "Attention Dev (grigta/attention-dev)",
+          "description": "No open issues, No open pull requests, No CI/CD workflow runs (workflows may not be configured yet)",
+          "projectId": "unknown"
+        },
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "Attention Ai (grigta/attention-ai)",
+          "description": "No open issues, No open pull requests, No CI/CD workflow runs (workflows may not be configured yet)",
+          "projectId": "unknown"
+        }
+      ],
+      "generatedTasks": [],
+      "projectReports": [],
+      "completedAt": 1769677552385
+    },
+    {
+      "id": "report-1769676993694",
+      "type": "health_check",
+      "projectIds": [
+        "attention-dev",
+        "attention-ai"
+      ],
+      "startedAt": 1769676993694,
+      "summary": "Both projects are in early planning phase with minimal GitHub activity. No open issues, PRs, or CI/CD workflows configured yet.",
+      "findings": [
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "Attention Dev (grigta/attention-dev)",
+          "description": "No open issues, No open PRs, No CI/CD workflows configured",
+          "projectId": "unknown"
+        },
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "Attention Ai (grigta/attention-ai)",
+          "description": "No open issues, No open PRs, No CI/CD workflows configured",
+          "projectId": "unknown"
+        }
+      ],
+      "generatedTasks": [],
+      "projectReports": [],
+      "completedAt": 1769677022210
+    },
+    {
+      "id": "report-1769676864843",
+      "type": "health_check",
+      "projectIds": [
+        "attention-dev",
+        "attention-ai"
+      ],
+      "startedAt": 1769676864843,
+      "summary": "Both projects are in planning phase with clean repos - no open issues, no open PRs, and no CI/CD workflows configured yet",
+      "findings": [
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "attention-dev",
+          "description": "No CI/CD workflows configured, No open issues or PRs (expected for planning phase)",
+          "projectId": "unknown"
+        },
+        {
+          "severity": "info",
+          "category": "health",
+          "title": "attention-ai",
+          "description": "No CI/CD workflows configured, No open issues or PRs (expected for planning phase)",
+          "projectId": "unknown"
+        }
+      ],
+      "generatedTasks": [],
+      "projectReports": [],
+      "completedAt": 1769676895259
+    }
+  ],
+  "ideas": [
+    {
+      "id": "idea-1769670668320-w47g1b",
+      "title": "Todo List App",
+      "description": "A simple todo list with add, delete, and mark complete functionality",
+      "status": "approved",
+      "createdAt": 1769670668320,
+      "updatedAt": 1769670695231,
+      "plan": {
+        "summary": "A minimal command-line todo list application that allows users to add tasks, delete tasks, and mark them as complete, with persistent storage to a local JSON file.",
+        "techStack": [
+          "TypeScript",
+          "Node.js",
+          "Commander.js",
+          "Chalk"
+        ],
+        "structure": [
+          {
+            "path": "src/",
+            "type": "directory",
+            "description": "Source code directory"
+          },
+          {
+            "path": "src/index.ts",
+            "type": "file",
+            "description": "CLI entry point with command definitions"
+          },
+          {
+            "path": "src/todo.ts",
+            "type": "file",
+            "description": "Core todo operations (add, delete, complete, list)"
+          },
+          {
+            "path": "src/storage.ts",
+            "type": "file",
+            "description": "JSON file persistence layer"
+          },
+          {
+            "path": "src/types.ts",
+            "type": "file",
+            "description": "TypeScript interfaces for Todo items"
+          },
+          {
+            "path": "src/display.ts",
+            "type": "file",
+            "description": "Terminal output formatting"
+          },
+          {
+            "path": "package.json",
+            "type": "file",
+            "description": "Project dependencies and scripts"
+          },
+          {
+            "path": "tsconfig.json",
+            "type": "file",
+            "description": "TypeScript configuration"
+          },
+          {
+            "path": "data/",
+            "type": "directory",
+            "description": "Default storage location for todos.json"
+          }
+        ],
+        "features": [
+          {
+            "name": "Add todo",
+            "description": "Add a new task with a title and optional description",
+            "priority": "core"
+          },
+          {
+            "name": "List todos",
+            "description": "Display all todos with their status (pending/complete)",
+            "priority": "core"
+          },
+          {
+            "name": "Mark complete",
+            "description": "Mark a todo item as completed by ID",
+            "priority": "core"
+          },
+          {
+            "name": "Delete todo",
+            "description": "Remove a todo item by ID",
+            "priority": "core"
+          },
+          {
+            "name": "Persistent storage",
+            "description": "Save todos to a local JSON file so they persist between sessions",
+            "priority": "core"
+          },
+          {
+            "name": "Colored output",
+            "description": "Use colors to distinguish completed vs pending tasks",
+            "priority": "important"
+          },
+          {
+            "name": "Filter by status",
+            "description": "List only pending or only completed todos",
+            "priority": "nice-to-have"
+          }
+        ],
+        "estimatedFiles": 8,
+        "repoNameSuggestion": "todo-cli"
+      }
+    },
+    {
+      "id": "idea-1769670372336-lqhvff",
+      "title": "Counter App",
+      "description": "Simple counter with increment/decrement buttons",
+      "status": "completed",
+      "createdAt": 1769670372336,
+      "updatedAt": 1769670875392,
+      "plan": {
+        "summary": "A minimal web-based counter application with increment and decrement buttons, displaying the current count value with a clean UI.",
+        "techStack": [
+          "HTML",
+          "CSS",
+          "TypeScript",
+          "Vite"
+        ],
+        "structure": [
+          {
+            "path": "src/",
+            "type": "directory",
+            "description": "Source code directory"
+          },
+          {
+            "path": "src/main.ts",
+            "type": "file",
+            "description": "Application entry point and counter logic"
+          },
+          {
+            "path": "src/style.css",
+            "type": "file",
+            "description": "Styling for the counter UI"
+          },
+          {
+            "path": "index.html",
+            "type": "file",
+            "description": "HTML template with counter markup"
+          },
+          {
+            "path": "package.json",
+            "type": "file",
+            "description": "Project dependencies and scripts"
+          },
+          {
+            "path": "tsconfig.json",
+            "type": "file",
+            "description": "TypeScript configuration"
+          },
+          {
+            "path": "vite.config.ts",
+            "type": "file",
+            "description": "Vite build configuration"
+          }
+        ],
+        "features": [
+          {
+            "name": "Display Counter",
+            "description": "Shows the current count value prominently in the center of the screen",
+            "priority": "core"
+          },
+          {
+            "name": "Increment Button",
+            "description": "Button that increases the counter by 1 when clicked",
+            "priority": "core"
+          },
+          {
+            "name": "Decrement Button",
+            "description": "Button that decreases the counter by 1 when clicked",
+            "priority": "core"
+          },
+          {
+            "name": "Reset Button",
+            "description": "Button to reset the counter back to zero",
+            "priority": "important"
+          },
+          {
+            "name": "Keyboard Support",
+            "description": "Allow using +/- keys or arrow keys to increment/decrement",
+            "priority": "nice-to-have"
+          },
+          {
+            "name": "Persist State",
+            "description": "Save counter value to localStorage so it persists across page reloads",
+            "priority": "nice-to-have"
+          }
+        ],
+        "estimatedFiles": 7,
+        "repoNameSuggestion": "counter-app"
+      },
+      "repoName": "counter-app",
+      "repoUrl": "https://github.com/grigta/counter-app",
+      "projectId": "project-1769670875392"
+    }
+  ],
+  "lastHealthCheck": 1769677552385
+}

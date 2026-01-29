@@ -1,0 +1,732 @@
+{
+  "sessions": [
+    {
+      "id": "session-1769676407375",
+      "title": "привет",
+      "messages": [
+        {
+          "id": "msg-1769676411576-user",
+          "role": "user",
+          "content": "привет",
+          "timestamp": 1769676411576,
+          "mentions": []
+        },
+        {
+          "id": "msg-1769676419999-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsПривет! Я PM Agent — помогаю управлять проектами, работать с GitHub (issues, PR, репозитории), анализировать код и искать информацию.\n\nЧем могу помочь сегодня?Привет! Я PM Agent — помогаю управлять проектами, работать с GitHub (issues, PR, репозитории), анализировать код и искать информацию.\n\nЧем могу помочь сегодня?",
+          "timestamp": 1769676419999,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769676415949,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769676419476,
+              "content": "Привет! Я PM Agent — помогаю управлять проектами, работать с GitHub (issues, PR, репозитории), анализировать код и искать информацию.\n\nЧем могу помочь сегодня?",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "text",
+              "timestamp": 1769676419486,
+              "content": "Привет! Я PM Agent — помогаю управлять проектами, работать с GitHub (issues, PR, репозитории), анализировать код и искать информацию.\n\nЧем могу помочь сегодня?",
+              "status": "completed"
+            },
+            {
+              "id": "step-4",
+              "type": "complete",
+              "timestamp": 1769676419998,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        }
+      ],
+      "createdAt": 1769676407375,
+      "updatedAt": 1769676419999
+    },
+    {
+      "id": "session-1769673242247",
+      "title": "@grigta/envisionmgmt внутри репозитория есть три п...",
+      "messages": [
+        {
+          "id": "msg-1769673496977-user",
+          "role": "user",
+          "content": "@grigta/envisionmgmt внутри репозитория есть три папки, можешь для каждой создать отдельный паблик репо",
+          "timestamp": 1769673496977,
+          "mentions": [
+            {
+              "type": "repo",
+              "value": "grigta/envisionmgmt"
+            }
+          ]
+        },
+        {
+          "id": "msg-1769673563776-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsЯ помогу создать отдельные публичные репозитории для каждой папки в grigta/envisionmgmt. Сначала посмотрю структуру репозитория.Вижу 5 папок в репозитории. Папки `.agent` и `.claude` — это служебные (конфигурационные), а основные проекты это:\n- **attention.ai**\n- **attention.dev**\n- **products**\n\nСоздам три публичных репозитория для этих папок.Репозитории созданы. Теперь нужно скопировать содержимое папок в новые репозитории. Сначала склонирую исходный репозиторий и загружу код в новые репо.Теперь загружу содержимое каждой папки в соответствующий новый репозиторий.Все три репозитория успешно созданы и наполнены кодом. Очистим временные файлы.## Готово!\n\nСозданы три публичных репозитория с содержимым папок из `grigta/envisionmgmt`:\n\n| Папка | Новый репозиторий | Файлов |\n|-------|-------------------|--------|\n| `attention.ai` | https://github.com/grigta/attention-ai | 9 файлов (landing page + images) |\n| `attention.dev` | https://github.com/grigta/attention-dev | 5 файлов (landing page + styles/scripts) |\n| `products` | https://github.com/grigta/products | 179 файлов (проект omnisupport: backend, widget, wireframes) |## Готово!\n\nСозданы три публичных репозитория с содержимым папок из `grigta/envisionmgmt`:\n\n| Папка | Новый репозиторий | Файлов |\n|-------|-------------------|--------|\n| `attention.ai` | https://github.com/grigta/attention-ai | 9 файлов (landing page + images) |\n| `attention.dev` | https://github.com/grigta/attention-dev | 5 файлов (landing page + styles/scripts) |\n| `products` | https://github.com/grigta/products | 179 файлов (проект omnisupport: backend, widget, wireframes) |",
+          "timestamp": 1769673563776,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769673500731,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769673504632,
+              "content": "Я помогу создать отдельные публичные репозитории для каждой папки в grigta/envisionmgmt. Сначала посмотрю структуру репозитория.",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "tool_use",
+              "timestamp": 1769673505365,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo view grigta/envisionmgmt --json name,description",
+                "description": "View repo info"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-4",
+              "type": "tool_use",
+              "timestamp": 1769673506304,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh api repos/grigta/envisionmgmt/contents --jq '.[] | select(.type == \"dir\") | .name'",
+                "description": "List top-level directories in the repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-5",
+              "type": "tool_result",
+              "timestamp": 1769673511114,
+              "content": "{\"description\":\"\",\"name\":\"envisionmgmt\"}",
+              "toolOutput": "{\"description\":\"\",\"name\":\"envisionmgmt\"}",
+              "status": "completed"
+            },
+            {
+              "id": "step-6",
+              "type": "tool_result",
+              "timestamp": 1769673515321,
+              "content": ".agent\n.claude\nattention.ai\nattention.dev\nproducts",
+              "toolOutput": ".agent\n.claude\nattention.ai\nattention.dev\nproducts",
+              "status": "completed"
+            },
+            {
+              "id": "step-7",
+              "type": "text",
+              "timestamp": 1769673520932,
+              "content": "Вижу 5 папок в репозитории. Папки `.agent` и `.claude` — это служебные (конфигурационные), а основные проекты это:\n- **attention.ai**\n- **attention.dev**\n- **products**\n\nСоздам три публичных репозитория для этих папок.",
+              "status": "running"
+            },
+            {
+              "id": "step-8",
+              "type": "tool_use",
+              "timestamp": 1769673522080,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo create grigta/attention-ai --public --description \"Attention AI project\" 2>&1",
+                "description": "Create attention-ai public repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-9",
+              "type": "tool_use",
+              "timestamp": 1769673522474,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo create grigta/attention-dev --public --description \"Attention Dev project\" 2>&1",
+                "description": "Create attention-dev public repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-10",
+              "type": "tool_use",
+              "timestamp": 1769673522964,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo create grigta/products --public --description \"Products project\" 2>&1",
+                "description": "Create products public repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-11",
+              "type": "tool_result",
+              "timestamp": 1769673525719,
+              "content": "https://github.com/grigta/attention-ai",
+              "toolOutput": "https://github.com/grigta/attention-ai",
+              "status": "completed"
+            },
+            {
+              "id": "step-12",
+              "type": "tool_result",
+              "timestamp": 1769673528941,
+              "content": "https://github.com/grigta/attention-dev",
+              "toolOutput": "https://github.com/grigta/attention-dev",
+              "status": "completed"
+            },
+            {
+              "id": "step-13",
+              "type": "tool_result",
+              "timestamp": 1769673531783,
+              "content": "https://github.com/grigta/products",
+              "toolOutput": "https://github.com/grigta/products",
+              "status": "completed"
+            },
+            {
+              "id": "step-14",
+              "type": "text",
+              "timestamp": 1769673535107,
+              "content": "Репозитории созданы. Теперь нужно скопировать содержимое папок в новые репозитории. Сначала склонирую исходный репозиторий и загружу код в новые репо.",
+              "status": "running"
+            },
+            {
+              "id": "step-15",
+              "type": "tool_use",
+              "timestamp": 1769673535942,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "cd /tmp && rm -rf envisionmgmt-clone && gh repo clone grigta/envisionmgmt envisionmgmt-clone 2>&1",
+                "description": "Clone the source repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-16",
+              "type": "tool_result",
+              "timestamp": 1769673538431,
+              "content": "Cloning into 'envisionmgmt-clone'...\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "toolOutput": "Cloning into 'envisionmgmt-clone'...\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "status": "completed"
+            },
+            {
+              "id": "step-17",
+              "type": "tool_use",
+              "timestamp": 1769673540861,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "ls -la /tmp/envisionmgmt-clone/",
+                "description": "Check cloned repo contents"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-18",
+              "type": "tool_result",
+              "timestamp": 1769673540917,
+              "content": "total 40\ndrwxr-xr-x@ 13 grigorijteresenko  wheel   416 Jan 28 23:58 .\ndrwxrwxrwt  52 root               wheel  1664 Jan 28 23:58 ..\ndrwxr-xr-x@  4 grigorijteresenko  wheel   128 Jan 28 23:58 .agent\ndrwxr-xr-x@  3 grigorijteresenko  wheel    96 Jan 28 23:58 .claude\ndrwxr-xr-x@ 12 grigorijteresenko  wheel   384 Jan 28 23:58 .git\n-rw-r--r--@  1 grigorijteresenko  wheel   231 Jan 28 23:58 .gitignore\n-rw-r--r--@  1 grigorijteresenko  wheel  2417 Jan 28 23:58 AGENT_LOG.md\n-rw-r--r--@  1 grigorijteresenko  wheel  2174 Jan 28 23:58 LAUNCH_CHECKLIST.md\n-rw-r--r--@  1 grigorijteresenko  wheel  2069 Jan 28 23:58 PRIORITIES.md\n-rw-r--r--@  1 grigorijteresenko  wheel  1453 Jan 28 23:58 ROADMAP.md\ndrwxr-xr-x@  7 grigorijteresenko  wheel   224 Jan 28 23:58 attention.ai\ndrwxr-xr-x@  7 grigorijteresenko  wheel   224 Jan 28 23:58 attention.dev\ndrwxr-xr-x@  3 grigorijteresenko  wheel    96 Jan 28 23:58 products",
+              "toolOutput": "total 40\ndrwxr-xr-x@ 13 grigorijteresenko  wheel   416 Jan 28 23:58 .\ndrwxrwxrwt  52 root               wheel  1664 Jan 28 23:58 ..\ndrwxr-xr-x@  4 grigorijteresenko  wheel   128 Jan 28 23:58 .agent\ndrwxr-xr-x@  3 grigorijteresenko  wheel    96 Jan 28 23:58 .claude\ndrwxr-xr-x@ 12 grigorijteresenko  wheel   384 Jan 28 23:58 .git\n-rw-r--r--@  1 grigorijteresenko  wheel   231 Jan 28 23:58 .gitignore\n-rw-r--r--@  1 grigorijteresenko  wheel  2417 Jan 28 23:58 AGENT_LOG.md\n-rw-r--r--@  1 grigorijteresenko  wheel  2174 Jan 28 23:58 LAUNCH_CHECKLIST.md\n-rw-r--r--@  1 grigorijteresenko  wheel  2069 Jan 28 23:58 PRIORITIES.md\n-rw-r--r--@  1 grigorijteresenko  wheel  1453 Jan 28 23:58 ROADMAP.md\ndrwxr-xr-x@  7 grigorijteresenko  wheel   224 Jan 28 23:58 attention.ai\ndrwxr-xr-x@  7 grigorijteresenko  wheel   224 Jan 28 23:58 attention.dev\ndrwxr-xr-x@  3 grigorijteresenko  wheel    96 Jan 28 23:58 products",
+              "status": "completed"
+            },
+            {
+              "id": "step-19",
+              "type": "text",
+              "timestamp": 1769673543244,
+              "content": "Теперь загружу содержимое каждой папки в соответствующий новый репозиторий.",
+              "status": "running"
+            },
+            {
+              "id": "step-20",
+              "type": "tool_use",
+              "timestamp": 1769673545858,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "cd /tmp && rm -rf attention-ai-repo && mkdir attention-ai-repo && cp -r /tmp/envisionmgmt-clone/attention.ai/* attention-ai-repo/ 2>/dev/null; cp -r /tmp/envisionmgmt-clone/attention.ai/.* attention-ai-repo/ 2>/dev/null; cd attention-ai-repo && git init && git add -A && git commit -m \"Initial commit: attention.ai project\" && git branch -M main && git remote add origin https://github.com/grigta/attention-ai.git && git push -u origin main 2>&1",
+                "description": "Push attention.ai to new repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-21",
+              "type": "tool_use",
+              "timestamp": 1769673547239,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "cd /tmp && rm -rf attention-dev-repo && mkdir attention-dev-repo && cp -r /tmp/envisionmgmt-clone/attention.dev/* attention-dev-repo/ 2>/dev/null; cp -r /tmp/envisionmgmt-clone/attention.dev/.* attention-dev-repo/ 2>/dev/null; cd attention-dev-repo && git init && git add -A && git commit -m \"Initial commit: attention.dev project\" && git branch -M main && git remote add origin https://github.com/grigta/attention-dev.git && git push -u origin main 2>&1",
+                "description": "Push attention.dev to new repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-22",
+              "type": "tool_use",
+              "timestamp": 1769673548463,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "cd /tmp && rm -rf products-repo && mkdir products-repo && cp -r /tmp/envisionmgmt-clone/products/* products-repo/ 2>/dev/null; cp -r /tmp/envisionmgmt-clone/products/.* products-repo/ 2>/dev/null; cd products-repo && git init && git add -A && git commit -m \"Initial commit: products project\" && git branch -M main && git remote add origin https://github.com/grigta/products.git && git push -u origin main 2>&1",
+                "description": "Push products to new repo"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-23",
+              "type": "tool_result",
+              "timestamp": 1769673550415,
+              "content": "Initialized empty Git repository in /private/tmp/attention-ai-repo/.git/\n[main (root-commit) 999b376] Initial commit: attention.ai project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 9 files changed, 1108 insertions(+)\n create mode 100644 images/Manus_1c_bw.png\n create mode 100644 images/Manus_Bitrix24_bw.png\n create mode 100644 images/Manus_Telegram_bw.png\n create mode 100644 images/Manus_WhatsApp_bw.png\n create mode 100644 images/Manus_amocrm_bw.png\n create mode 100644 index.html\n create mode 100644 privacy.html\n create mode 100644 robots.txt\n create mode 100644 sitemap.xml\nTo https://github.com/grigta/attention-ai.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/attention.ai/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "toolOutput": "Initialized empty Git repository in /private/tmp/attention-ai-repo/.git/\n[main (root-commit) 999b376] Initial commit: attention.ai project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 9 files changed, 1108 insertions(+)\n create mode 100644 images/Manus_1c_bw.png\n create mode 100644 images/Manus_Bitrix24_bw.png\n create mode 100644 images/Manus_Telegram_bw.png\n create mode 100644 images/Manus_WhatsApp_bw.png\n create mode 100644 images/Manus_amocrm_bw.png\n create mode 100644 index.html\n create mode 100644 privacy.html\n create mode 100644 robots.txt\n create mode 100644 sitemap.xml\nTo https://github.com/grigta/attention-ai.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/attention.ai/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "status": "completed"
+            },
+            {
+              "id": "step-24",
+              "type": "tool_result",
+              "timestamp": 1769673551860,
+              "content": "Initialized empty Git repository in /private/tmp/attention-dev-repo/.git/\n[main (root-commit) 155ad4b] Initial commit: attention.dev project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 5 files changed, 3351 insertions(+)\n create mode 100644 index.html\n create mode 100644 robots.txt\n create mode 100644 scripts.js\n create mode 100644 sitemap.xml\n create mode 100644 styles.css\nTo https://github.com/grigta/attention-dev.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/attention.dev/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "toolOutput": "Initialized empty Git repository in /private/tmp/attention-dev-repo/.git/\n[main (root-commit) 155ad4b] Initial commit: attention.dev project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 5 files changed, 3351 insertions(+)\n create mode 100644 index.html\n create mode 100644 robots.txt\n create mode 100644 scripts.js\n create mode 100644 sitemap.xml\n create mode 100644 styles.css\nTo https://github.com/grigta/attention-dev.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/attention.dev/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "status": "completed"
+            },
+            {
+              "id": "step-25",
+              "type": "tool_result",
+              "timestamp": 1769673554072,
+              "content": "Initialized empty Git repository in /private/tmp/products-repo/.git/\n[main (root-commit) 35cfe21] Initial commit: products project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 179 files changed, 33643 insertions(+)\n create mode 100644 omnisupport/README.md\n create mode 100644 omnisupport/backend/.env.example\n create mode 100644 omnisupport/backend/Dockerfile\n create mode 100644 omnisupport/backend/alembic.ini\n create mode 100644 omnisupport/backend/alembic/env.py\n create mode 100644 omnisupport/backend/alembic/script.py.mako\n create mode 100644 omnisupport/backend/alembic/versions/001_initial_schema.py\n create mode 100644 omnisupport/backend/alembic/versions/002_add_attachments.py\n create mode 100644 omnisupport/backend/docker-compose.yml\n create mode 100644 omnisupport/backend/pyproject.toml\n create mode 100644 omnisupport/backend/services/__init__.py\n create mode 100644 omnisupport/backend/services/admin/__init__.py\n create mode 100644 omnisupport/backend/services/admin/billing/__init__.py\n create mode 100644 omnisupport/backend/services/admin/billing/service.py\n create mode 100644 omnisupport/backend/services/admin/billing/usage.py\n create mode 100644 omnisupport/backend/services/admin/reports/__init__.py\n create mode 100644 omnisupport/backend/services/admin/reports/exporters.py\n create mode 100644 omnisupport/backend/services/admin/reports/generator.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/__init__.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/executor.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/nodes.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/templates.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/triggers.py\n create mode 100644 omnisupport/backend/services/ai/__init__.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/__init__.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/chunking.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/crawler.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/processors.py\n create mode 100644 omnisupport/backend/services/ai/llm/__init__.py\n create mode 100644 omnisupport/backend/services/ai/llm/anthropic.py\n create mode 100644 omnisupport/backend/services/ai/llm/base.py\n create mode 100644 omnisupport/backend/services/ai/llm/gigachat.py\n create mode 100644 omnisupport/backend/services/ai/llm/openai.py\n create mode 100644 omnisupport/backend/services/ai/llm/service.py\n create mode 100644 omnisupport/backend/services/ai/llm/yandexgpt.py\n create mode 100644 omnisupport/backend/services/ai/rag/__init__.py\n create mode 100644 omnisupport/backend/services/ai/rag/embeddings.py\n create mode 100644 omnisupport/backend/services/ai/rag/retriever.py\n create mode 100644 omnisupport/backend/services/ai/rag/vector_store.py\n create mode 100644 omnisupport/backend/services/channel/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/base.py\n create mode 100644 omnisupport/backend/services/channel/adapters/telegram/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/whatsapp/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/widget/__init__.py\n create mode 100644 omnisupport/backend/services/channel/widget_api.py\n create mode 100644 omnisupport/backend/services/core/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/v1/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/v1/ai.py\n create mode 100644 omnisupport/backend/services/core/api/v1/analytics.py\n create mode 100644 omnisupport/backend/services/core/api/v1/attachments.py\n create mode 100644 omnisupport/backend/services/core/api/v1/auth.py\n create mode 100644 omnisupport/backend/services/core/api/v1/billing.py\n create mode 100644 omnisupport/backend/services/core/api/v1/branding.py\n create mode 100644 omnisupport/backend/services/core/api/v1/channels.py\n create mode 100644 omnisupport/backend/services/core/api/v1/conversations.py\n create mode 100644 omnisupport/backend/services/core/api/v1/customers.py\n create mode 100644 omnisupport/backend/services/core/api/v1/integrations.py\n create mode 100644 omnisupport/backend/services/core/api/v1/knowledge.py\n create mode 100644 omnisupport/backend/services/core/api/v1/scenarios.py\n create mode 100644 omnisupport/backend/services/core/api/v1/settings.py\n create mode 100644 omnisupport/backend/services/core/api/v1/superadmin.py\n create mode 100644 omnisupport/backend/services/core/api/v1/team.py\n create mode 100644 omnisupport/backend/services/core/api/v1/users.py\n create mode 100644 omnisupport/backend/services/core/api/v1/webhooks.py\n create mode 100644 omnisupport/backend/services/core/main.py\n create mode 100644 omnisupport/backend/services/core/websocket/__init__.py\n create mode 100644 omnisupport/backend/services/core/websocket/handlers.py\n create mode 100644 omnisupport/backend/services/core/websocket/manager.py\n create mode 100644 omnisupport/backend/services/core/websocket/router.py\n create mode 100644 omnisupport/backend/services/superadmin/__init__.py\n create mode 100644 omnisupport/backend/services/superadmin/service.py\n create mode 100644 omnisupport/backend/shared/__init__.py\n create mode 100644 omnisupport/backend/shared/auth/__init__.py\n create mode 100644 omnisupport/backend/shared/auth/dependencies.py\n create mode 100644 omnisupport/backend/shared/auth/jwt.py\n create mode 100644 omnisupport/backend/shared/auth/password.py\n create mode 100644 omnisupport/backend/shared/auth/two_factor.py\n create mode 100644 omnisupport/backend/shared/config.py\n create mode 100644 omnisupport/backend/shared/database.py\n create mode 100644 omnisupport/backend/shared/events/__init__.py\n create mode 100644 omnisupport/backend/shared/events/publisher.py\n create mode 100644 omnisupport/backend/shared/events/subscriber.py\n create mode 100644 omnisupport/backend/shared/events/types.py\n create mode 100644 omnisupport/backend/shared/models/__init__.py\n create mode 100644 omnisupport/backend/shared/models/ai.py\n create mode 100644 omnisupport/backend/shared/models/analytics.py\n create mode 100644 omnisupport/backend/shared/models/attachment.py\n create mode 100644 omnisupport/backend/shared/models/base.py\n create mode 100644 omnisupport/backend/shared/models/billing.py\n create mode 100644 omnisupport/backend/shared/models/channel.py\n create mode 100644 omnisupport/backend/shared/models/conversation.py\n create mode 100644 omnisupport/backend/shared/models/customer.py\n create mode 100644 omnisupport/backend/shared/models/department.py\n create mode 100644 omnisupport/backend/shared/models/integration.py\n create mode 100644 omnisupport/backend/shared/models/knowledge.py\n create mode 100644 omnisupport/backend/shared/models/scenario.py\n create mode 100644 omnisupport/backend/shared/models/skill.py\n create mode 100644 omnisupport/backend/shared/models/tenant.py\n create mode 100644 omnisupport/backend/shared/models/user.py\n create mode 100644 omnisupport/backend/shared/schemas/__init__.py\n create mode 100644 omnisupport/backend/shared/schemas/attachment.py\n create mode 100644 omnisupport/backend/shared/schemas/auth.py\n create mode 100644 omnisupport/backend/shared/schemas/base.py\n create mode 100644 omnisupport/backend/shared/schemas/conversation.py\n create mode 100644 omnisupport/backend/shared/schemas/customer.py\n create mode 100644 omnisupport/backend/shared/schemas/tenant.py\n create mode 100644 omnisupport/backend/shared/schemas/user.py\n create mode 100644 omnisupport/backend/shared/storage.py\n create mode 100644 omnisupport/backend/tests/__init__.py\n create mode 100644 omnisupport/backend/tests/conftest.py\n create mode 100644 omnisupport/backend/tests/test_auth.py\n create mode 100644 omnisupport/backend/tests/test_conversations.py\n create mode 100644 omnisupport/backend/tests/test_messages.py\n create mode 100644 omnisupport/backend/workers/__init__.py\n create mode 100644 omnisupport/backend/workers/ai.py\n create mode 100644 omnisupport/backend/workers/analytics.py\n create mode 100644 omnisupport/backend/workers/base.py\n create mode 100644 omnisupport/backend/workers/main.py\n create mode 100644 omnisupport/backend/workers/notification.py\n create mode 100644 omnisupport/backend/workers/router.py\n create mode 100644 omnisupport/backend/workers/webhook.py\n create mode 100644 omnisupport/landing/index.html\n create mode 100644 omnisupport/widget/.env.example\n create mode 100644 omnisupport/widget/.gitignore\n create mode 100644 omnisupport/widget/index.html\n create mode 100644 omnisupport/widget/package-lock.json\n create mode 100644 omnisupport/widget/package.json\n create mode 100644 omnisupport/widget/postcss.config.js\n create mode 100644 omnisupport/widget/sdk/embed.ts\n create mode 100644 omnisupport/widget/sdk/loader.ts\n create mode 100644 omnisupport/widget/src/App.tsx\n create mode 100644 omnisupport/widget/src/components/chat/ChatMessages.tsx\n create mode 100644 omnisupport/widget/src/components/chat/MessageBubble.tsx\n create mode 100644 omnisupport/widget/src/components/chat/MessageInput.tsx\n create mode 100644 omnisupport/widget/src/components/chat/TypingIndicator.tsx\n create mode 100644 omnisupport/widget/src/components/chat/index.ts\n create mode 100644 omnisupport/widget/src/components/forms/OfflineForm.tsx\n create mode 100644 omnisupport/widget/src/components/forms/PrechatForm.tsx\n create mode 100644 omnisupport/widget/src/components/forms/index.ts\n create mode 100644 omnisupport/widget/src/components/layout/LauncherButton.tsx\n create mode 100644 omnisupport/widget/src/components/layout/WidgetContainer.tsx\n create mode 100644 omnisupport/widget/src/components/layout/WidgetHeader.tsx\n create mode 100644 omnisupport/widget/src/components/layout/index.ts\n create mode 100644 omnisupport/widget/src/components/ui/Avatar.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Button.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Input.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Spinner.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Textarea.tsx\n create mode 100644 omnisupport/widget/src/components/ui/index.ts\n create mode 100644 omnisupport/widget/src/hooks/index.ts\n create mode 100644 omnisupport/widget/src/hooks/useConversation.ts\n create mode 100644 omnisupport/widget/src/hooks/useMessages.ts\n create mode 100644 omnisupport/widget/src/hooks/useWebSocket.ts\n create mode 100644 omnisupport/widget/src/hooks/useWidgetConfig.ts\n create mode 100644 omnisupport/widget/src/index.css\n create mode 100644 omnisupport/widget/src/lib/api.ts\n create mode 100644 omnisupport/widget/src/lib/storage.ts\n create mode 100644 omnisupport/widget/src/lib/utils.ts\n create mode 100644 omnisupport/widget/src/lib/visitor.ts\n create mode 100644 omnisupport/widget/src/lib/websocket.ts\n create mode 100644 omnisupport/widget/src/main.tsx\n create mode 100644 omnisupport/widget/src/pages/ArticlePage.tsx\n create mode 100644 omnisupport/widget/src/pages/ArticlesPage.tsx\n create mode 100644 omnisupport/widget/src/pages/ChatPage.tsx\n create mode 100644 omnisupport/widget/src/pages/OfflineFormPage.tsx\n create mode 100644 omnisupport/widget/src/pages/index.ts\n create mode 100644 omnisupport/widget/src/stores/widget.store.ts\n create mode 100644 omnisupport/widget/src/types.ts\n create mode 100644 omnisupport/widget/src/vite-env.d.ts\n create mode 100644 omnisupport/widget/tailwind.config.ts\n create mode 100644 omnisupport/widget/tsconfig.json\n create mode 100644 omnisupport/widget/tsconfig.tsbuildinfo\n create mode 100644 omnisupport/widget/vite.config.ts\n create mode 100644 omnisupport/wireframes/admin-panel.html\n create mode 100644 omnisupport/wireframes/analytics-dashboard.html\n create mode 100644 omnisupport/wireframes/operator-panel.html\n create mode 100644 omnisupport/wireframes/web-widget.html\nTo https://github.com/grigta/products.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/products/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "toolOutput": "Initialized empty Git repository in /private/tmp/products-repo/.git/\n[main (root-commit) 35cfe21] Initial commit: products project\n Committer: Григорий Терещенко <grigorijteresenko@MacBook-Air-Grigorij.local>\nYour name and email address were configured automatically based\non your username and hostname. Please check that they are accurate.\nYou can suppress this message by setting them explicitly. Run the\nfollowing command and follow the instructions in your editor to edit\nyour configuration file:\n\n    git config --global --edit\n\nAfter doing this, you may fix the identity used for this commit with:\n\n    git commit --amend --reset-author\n\n 179 files changed, 33643 insertions(+)\n create mode 100644 omnisupport/README.md\n create mode 100644 omnisupport/backend/.env.example\n create mode 100644 omnisupport/backend/Dockerfile\n create mode 100644 omnisupport/backend/alembic.ini\n create mode 100644 omnisupport/backend/alembic/env.py\n create mode 100644 omnisupport/backend/alembic/script.py.mako\n create mode 100644 omnisupport/backend/alembic/versions/001_initial_schema.py\n create mode 100644 omnisupport/backend/alembic/versions/002_add_attachments.py\n create mode 100644 omnisupport/backend/docker-compose.yml\n create mode 100644 omnisupport/backend/pyproject.toml\n create mode 100644 omnisupport/backend/services/__init__.py\n create mode 100644 omnisupport/backend/services/admin/__init__.py\n create mode 100644 omnisupport/backend/services/admin/billing/__init__.py\n create mode 100644 omnisupport/backend/services/admin/billing/service.py\n create mode 100644 omnisupport/backend/services/admin/billing/usage.py\n create mode 100644 omnisupport/backend/services/admin/reports/__init__.py\n create mode 100644 omnisupport/backend/services/admin/reports/exporters.py\n create mode 100644 omnisupport/backend/services/admin/reports/generator.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/__init__.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/executor.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/nodes.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/templates.py\n create mode 100644 omnisupport/backend/services/admin/scenarios/triggers.py\n create mode 100644 omnisupport/backend/services/ai/__init__.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/__init__.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/chunking.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/crawler.py\n create mode 100644 omnisupport/backend/services/ai/knowledge/processors.py\n create mode 100644 omnisupport/backend/services/ai/llm/__init__.py\n create mode 100644 omnisupport/backend/services/ai/llm/anthropic.py\n create mode 100644 omnisupport/backend/services/ai/llm/base.py\n create mode 100644 omnisupport/backend/services/ai/llm/gigachat.py\n create mode 100644 omnisupport/backend/services/ai/llm/openai.py\n create mode 100644 omnisupport/backend/services/ai/llm/service.py\n create mode 100644 omnisupport/backend/services/ai/llm/yandexgpt.py\n create mode 100644 omnisupport/backend/services/ai/rag/__init__.py\n create mode 100644 omnisupport/backend/services/ai/rag/embeddings.py\n create mode 100644 omnisupport/backend/services/ai/rag/retriever.py\n create mode 100644 omnisupport/backend/services/ai/rag/vector_store.py\n create mode 100644 omnisupport/backend/services/channel/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/base.py\n create mode 100644 omnisupport/backend/services/channel/adapters/telegram/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/whatsapp/__init__.py\n create mode 100644 omnisupport/backend/services/channel/adapters/widget/__init__.py\n create mode 100644 omnisupport/backend/services/channel/widget_api.py\n create mode 100644 omnisupport/backend/services/core/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/v1/__init__.py\n create mode 100644 omnisupport/backend/services/core/api/v1/ai.py\n create mode 100644 omnisupport/backend/services/core/api/v1/analytics.py\n create mode 100644 omnisupport/backend/services/core/api/v1/attachments.py\n create mode 100644 omnisupport/backend/services/core/api/v1/auth.py\n create mode 100644 omnisupport/backend/services/core/api/v1/billing.py\n create mode 100644 omnisupport/backend/services/core/api/v1/branding.py\n create mode 100644 omnisupport/backend/services/core/api/v1/channels.py\n create mode 100644 omnisupport/backend/services/core/api/v1/conversations.py\n create mode 100644 omnisupport/backend/services/core/api/v1/customers.py\n create mode 100644 omnisupport/backend/services/core/api/v1/integrations.py\n create mode 100644 omnisupport/backend/services/core/api/v1/knowledge.py\n create mode 100644 omnisupport/backend/services/core/api/v1/scenarios.py\n create mode 100644 omnisupport/backend/services/core/api/v1/settings.py\n create mode 100644 omnisupport/backend/services/core/api/v1/superadmin.py\n create mode 100644 omnisupport/backend/services/core/api/v1/team.py\n create mode 100644 omnisupport/backend/services/core/api/v1/users.py\n create mode 100644 omnisupport/backend/services/core/api/v1/webhooks.py\n create mode 100644 omnisupport/backend/services/core/main.py\n create mode 100644 omnisupport/backend/services/core/websocket/__init__.py\n create mode 100644 omnisupport/backend/services/core/websocket/handlers.py\n create mode 100644 omnisupport/backend/services/core/websocket/manager.py\n create mode 100644 omnisupport/backend/services/core/websocket/router.py\n create mode 100644 omnisupport/backend/services/superadmin/__init__.py\n create mode 100644 omnisupport/backend/services/superadmin/service.py\n create mode 100644 omnisupport/backend/shared/__init__.py\n create mode 100644 omnisupport/backend/shared/auth/__init__.py\n create mode 100644 omnisupport/backend/shared/auth/dependencies.py\n create mode 100644 omnisupport/backend/shared/auth/jwt.py\n create mode 100644 omnisupport/backend/shared/auth/password.py\n create mode 100644 omnisupport/backend/shared/auth/two_factor.py\n create mode 100644 omnisupport/backend/shared/config.py\n create mode 100644 omnisupport/backend/shared/database.py\n create mode 100644 omnisupport/backend/shared/events/__init__.py\n create mode 100644 omnisupport/backend/shared/events/publisher.py\n create mode 100644 omnisupport/backend/shared/events/subscriber.py\n create mode 100644 omnisupport/backend/shared/events/types.py\n create mode 100644 omnisupport/backend/shared/models/__init__.py\n create mode 100644 omnisupport/backend/shared/models/ai.py\n create mode 100644 omnisupport/backend/shared/models/analytics.py\n create mode 100644 omnisupport/backend/shared/models/attachment.py\n create mode 100644 omnisupport/backend/shared/models/base.py\n create mode 100644 omnisupport/backend/shared/models/billing.py\n create mode 100644 omnisupport/backend/shared/models/channel.py\n create mode 100644 omnisupport/backend/shared/models/conversation.py\n create mode 100644 omnisupport/backend/shared/models/customer.py\n create mode 100644 omnisupport/backend/shared/models/department.py\n create mode 100644 omnisupport/backend/shared/models/integration.py\n create mode 100644 omnisupport/backend/shared/models/knowledge.py\n create mode 100644 omnisupport/backend/shared/models/scenario.py\n create mode 100644 omnisupport/backend/shared/models/skill.py\n create mode 100644 omnisupport/backend/shared/models/tenant.py\n create mode 100644 omnisupport/backend/shared/models/user.py\n create mode 100644 omnisupport/backend/shared/schemas/__init__.py\n create mode 100644 omnisupport/backend/shared/schemas/attachment.py\n create mode 100644 omnisupport/backend/shared/schemas/auth.py\n create mode 100644 omnisupport/backend/shared/schemas/base.py\n create mode 100644 omnisupport/backend/shared/schemas/conversation.py\n create mode 100644 omnisupport/backend/shared/schemas/customer.py\n create mode 100644 omnisupport/backend/shared/schemas/tenant.py\n create mode 100644 omnisupport/backend/shared/schemas/user.py\n create mode 100644 omnisupport/backend/shared/storage.py\n create mode 100644 omnisupport/backend/tests/__init__.py\n create mode 100644 omnisupport/backend/tests/conftest.py\n create mode 100644 omnisupport/backend/tests/test_auth.py\n create mode 100644 omnisupport/backend/tests/test_conversations.py\n create mode 100644 omnisupport/backend/tests/test_messages.py\n create mode 100644 omnisupport/backend/workers/__init__.py\n create mode 100644 omnisupport/backend/workers/ai.py\n create mode 100644 omnisupport/backend/workers/analytics.py\n create mode 100644 omnisupport/backend/workers/base.py\n create mode 100644 omnisupport/backend/workers/main.py\n create mode 100644 omnisupport/backend/workers/notification.py\n create mode 100644 omnisupport/backend/workers/router.py\n create mode 100644 omnisupport/backend/workers/webhook.py\n create mode 100644 omnisupport/landing/index.html\n create mode 100644 omnisupport/widget/.env.example\n create mode 100644 omnisupport/widget/.gitignore\n create mode 100644 omnisupport/widget/index.html\n create mode 100644 omnisupport/widget/package-lock.json\n create mode 100644 omnisupport/widget/package.json\n create mode 100644 omnisupport/widget/postcss.config.js\n create mode 100644 omnisupport/widget/sdk/embed.ts\n create mode 100644 omnisupport/widget/sdk/loader.ts\n create mode 100644 omnisupport/widget/src/App.tsx\n create mode 100644 omnisupport/widget/src/components/chat/ChatMessages.tsx\n create mode 100644 omnisupport/widget/src/components/chat/MessageBubble.tsx\n create mode 100644 omnisupport/widget/src/components/chat/MessageInput.tsx\n create mode 100644 omnisupport/widget/src/components/chat/TypingIndicator.tsx\n create mode 100644 omnisupport/widget/src/components/chat/index.ts\n create mode 100644 omnisupport/widget/src/components/forms/OfflineForm.tsx\n create mode 100644 omnisupport/widget/src/components/forms/PrechatForm.tsx\n create mode 100644 omnisupport/widget/src/components/forms/index.ts\n create mode 100644 omnisupport/widget/src/components/layout/LauncherButton.tsx\n create mode 100644 omnisupport/widget/src/components/layout/WidgetContainer.tsx\n create mode 100644 omnisupport/widget/src/components/layout/WidgetHeader.tsx\n create mode 100644 omnisupport/widget/src/components/layout/index.ts\n create mode 100644 omnisupport/widget/src/components/ui/Avatar.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Button.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Input.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Spinner.tsx\n create mode 100644 omnisupport/widget/src/components/ui/Textarea.tsx\n create mode 100644 omnisupport/widget/src/components/ui/index.ts\n create mode 100644 omnisupport/widget/src/hooks/index.ts\n create mode 100644 omnisupport/widget/src/hooks/useConversation.ts\n create mode 100644 omnisupport/widget/src/hooks/useMessages.ts\n create mode 100644 omnisupport/widget/src/hooks/useWebSocket.ts\n create mode 100644 omnisupport/widget/src/hooks/useWidgetConfig.ts\n create mode 100644 omnisupport/widget/src/index.css\n create mode 100644 omnisupport/widget/src/lib/api.ts\n create mode 100644 omnisupport/widget/src/lib/storage.ts\n create mode 100644 omnisupport/widget/src/lib/utils.ts\n create mode 100644 omnisupport/widget/src/lib/visitor.ts\n create mode 100644 omnisupport/widget/src/lib/websocket.ts\n create mode 100644 omnisupport/widget/src/main.tsx\n create mode 100644 omnisupport/widget/src/pages/ArticlePage.tsx\n create mode 100644 omnisupport/widget/src/pages/ArticlesPage.tsx\n create mode 100644 omnisupport/widget/src/pages/ChatPage.tsx\n create mode 100644 omnisupport/widget/src/pages/OfflineFormPage.tsx\n create mode 100644 omnisupport/widget/src/pages/index.ts\n create mode 100644 omnisupport/widget/src/stores/widget.store.ts\n create mode 100644 omnisupport/widget/src/types.ts\n create mode 100644 omnisupport/widget/src/vite-env.d.ts\n create mode 100644 omnisupport/widget/tailwind.config.ts\n create mode 100644 omnisupport/widget/tsconfig.json\n create mode 100644 omnisupport/widget/tsconfig.tsbuildinfo\n create mode 100644 omnisupport/widget/vite.config.ts\n create mode 100644 omnisupport/wireframes/admin-panel.html\n create mode 100644 omnisupport/wireframes/analytics-dashboard.html\n create mode 100644 omnisupport/wireframes/operator-panel.html\n create mode 100644 omnisupport/wireframes/web-widget.html\nTo https://github.com/grigta/products.git\n * [new branch]      main -> main\nbranch 'main' set up to track 'origin/main'.\n(eval):1: no matches found: /tmp/envisionmgmt-clone/products/.*\nShell cwd was reset to /Users/grigorijteresenko/envisionbot/pm-agent",
+              "status": "completed"
+            },
+            {
+              "id": "step-26",
+              "type": "text",
+              "timestamp": 1769673557074,
+              "content": "Все три репозитория успешно созданы и наполнены кодом. Очистим временные файлы.",
+              "status": "running"
+            },
+            {
+              "id": "step-27",
+              "type": "tool_use",
+              "timestamp": 1769673558021,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "rm -rf /tmp/envisionmgmt-clone /tmp/attention-ai-repo /tmp/attention-dev-repo /tmp/products-repo",
+                "description": "Cleanup temp files"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-28",
+              "type": "tool_result",
+              "timestamp": 1769673558197,
+              "content": "",
+              "toolOutput": "",
+              "status": "completed"
+            },
+            {
+              "id": "step-29",
+              "type": "text",
+              "timestamp": 1769673563224,
+              "content": "## Готово!\n\nСозданы три публичных репозитория с содержимым папок из `grigta/envisionmgmt`:\n\n| Папка | Новый репозиторий | Файлов |\n|-------|-------------------|--------|\n| `attention.ai` | https://github.com/grigta/attention-ai | 9 файлов (landing page + images) |\n| `attention.dev` | https://github.com/grigta/attention-dev | 5 файлов (landing page + styles/scripts) |\n| `products` | https://github.com/grigta/products | 179 файлов (проект omnisupport: backend, widget, wireframes) |",
+              "status": "running"
+            },
+            {
+              "id": "step-30",
+              "type": "text",
+              "timestamp": 1769673563227,
+              "content": "## Готово!\n\nСозданы три публичных репозитория с содержимым папок из `grigta/envisionmgmt`:\n\n| Папка | Новый репозиторий | Файлов |\n|-------|-------------------|--------|\n| `attention.ai` | https://github.com/grigta/attention-ai | 9 файлов (landing page + images) |\n| `attention.dev` | https://github.com/grigta/attention-dev | 5 файлов (landing page + styles/scripts) |\n| `products` | https://github.com/grigta/products | 179 файлов (проект omnisupport: backend, widget, wireframes) |",
+              "status": "completed"
+            },
+            {
+              "id": "step-31",
+              "type": "complete",
+              "timestamp": 1769673563775,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        },
+        {
+          "id": "msg-1769673985241-user",
+          "role": "user",
+          "content": "@grigta/products нужно, чтобы ты сделал репозиторий не **products**, а чтобы был репозиторий именно **omnisupport**",
+          "timestamp": 1769673985241,
+          "mentions": [
+            {
+              "type": "repo",
+              "value": "grigta/products"
+            }
+          ]
+        },
+        {
+          "id": "msg-1769674013348-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsПонял, вам нужно переименовать репозиторий `grigta/products` в `grigta/omnisupport`. Давайте сначала проверю текущее состояние репозитория.Репозиторий существует. Теперь переименую его в `omnisupport`:Репозиторий с именем `omnisupport` уже существует в вашем аккаунте. Давайте проверю:У вас уже есть репозиторий `grigta/OmniSupport` с описанием \"Multi-channel customer support platform\".\n\n---\n\n## Итог\n\nРепозиторий **omnisupport** уже существует: https://github.com/grigta/OmniSupport\n\nТекущая ситуация:\n- `grigta/products` — существует (описание: \"Products project\")\n- `grigta/OmniSupport` — уже существует (описание: \"Multi-channel customer support platform\")\n\nЧто вы хотите сделать?\n1. **Удалить `products`** и оставить только `OmniSupport`\n2. **Перенести содержимое** из `products` в `OmniSupport`\n3. **Переименовать `products`** в другое имя\n4. **Что-то другое**У вас уже есть репозиторий `grigta/OmniSupport` с описанием \"Multi-channel customer support platform\".\n\n---\n\n## Итог\n\nРепозиторий **omnisupport** уже существует: https://github.com/grigta/OmniSupport\n\nТекущая ситуация:\n- `grigta/products` — существует (описание: \"Products project\")\n- `grigta/OmniSupport` — уже существует (описание: \"Multi-channel customer support platform\")\n\nЧто вы хотите сделать?\n1. **Удалить `products`** и оставить только `OmniSupport`\n2. **Перенести содержимое** из `products` в `OmniSupport`\n3. **Переименовать `products`** в другое имя\n4. **Что-то другое**",
+          "timestamp": 1769674013348,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769673989780,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769673993724,
+              "content": "Понял, вам нужно переименовать репозиторий `grigta/products` в `grigta/omnisupport`. Давайте сначала проверю текущее состояние репозитория.",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "tool_use",
+              "timestamp": 1769673994787,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo view grigta/products --json name,description,visibility,url 2>&1 || echo \"Repo not found or error\"",
+                "description": "Check current repository info"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-4",
+              "type": "tool_result",
+              "timestamp": 1769673997115,
+              "content": "{\"description\":\"Products project\",\"name\":\"products\",\"url\":\"https://github.com/grigta/products\",\"visibility\":\"PUBLIC\"}",
+              "toolOutput": "{\"description\":\"Products project\",\"name\":\"products\",\"url\":\"https://github.com/grigta/products\",\"visibility\":\"PUBLIC\"}",
+              "status": "completed"
+            },
+            {
+              "id": "step-5",
+              "type": "text",
+              "timestamp": 1769673999659,
+              "content": "Репозиторий существует. Теперь переименую его в `omnisupport`:",
+              "status": "running"
+            },
+            {
+              "id": "step-6",
+              "type": "tool_use",
+              "timestamp": 1769674000235,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo rename omnisupport --repo grigta/products --yes",
+                "description": "Rename repository from products to omnisupport"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-7",
+              "type": "tool_result",
+              "timestamp": 1769674001670,
+              "content": "Exit code 1\nHTTP 422: Validation Failed (https://api.github.com/repos/grigta/products)\nname already exists on this account",
+              "toolOutput": "Exit code 1\nHTTP 422: Validation Failed (https://api.github.com/repos/grigta/products)\nname already exists on this account",
+              "status": "completed"
+            },
+            {
+              "id": "step-8",
+              "type": "text",
+              "timestamp": 1769674004756,
+              "content": "Репозиторий с именем `omnisupport` уже существует в вашем аккаунте. Давайте проверю:",
+              "status": "running"
+            },
+            {
+              "id": "step-9",
+              "type": "tool_use",
+              "timestamp": 1769674005508,
+              "content": "Using tool: Bash",
+              "toolName": "Bash",
+              "toolInput": {
+                "command": "gh repo view grigta/omnisupport --json name,description,visibility,url 2>&1",
+                "description": "Check if omnisupport repo exists"
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-10",
+              "type": "tool_result",
+              "timestamp": 1769674006948,
+              "content": "{\"description\":\"Multi-channel customer support platform\",\"name\":\"OmniSupport\",\"url\":\"https://github.com/grigta/OmniSupport\",\"visibility\":\"PUBLIC\"}",
+              "toolOutput": "{\"description\":\"Multi-channel customer support platform\",\"name\":\"OmniSupport\",\"url\":\"https://github.com/grigta/OmniSupport\",\"visibility\":\"PUBLIC\"}",
+              "status": "completed"
+            },
+            {
+              "id": "step-11",
+              "type": "text",
+              "timestamp": 1769674012555,
+              "content": "У вас уже есть репозиторий `grigta/OmniSupport` с описанием \"Multi-channel customer support platform\".\n\n---\n\n## Итог\n\nРепозиторий **omnisupport** уже существует: https://github.com/grigta/OmniSupport\n\nТекущая ситуация:\n- `grigta/products` — существует (описание: \"Products project\")\n- `grigta/OmniSupport` — уже существует (описание: \"Multi-channel customer support platform\")\n\nЧто вы хотите сделать?\n1. **Удалить `products`** и оставить только `OmniSupport`\n2. **Перенести содержимое** из `products` в `OmniSupport`\n3. **Переименовать `products`** в другое имя\n4. **Что-то другое**",
+              "status": "running"
+            },
+            {
+              "id": "step-12",
+              "type": "text",
+              "timestamp": 1769674012593,
+              "content": "У вас уже есть репозиторий `grigta/OmniSupport` с описанием \"Multi-channel customer support platform\".\n\n---\n\n## Итог\n\nРепозиторий **omnisupport** уже существует: https://github.com/grigta/OmniSupport\n\nТекущая ситуация:\n- `grigta/products` — существует (описание: \"Products project\")\n- `grigta/OmniSupport` — уже существует (описание: \"Multi-channel customer support platform\")\n\nЧто вы хотите сделать?\n1. **Удалить `products`** и оставить только `OmniSupport`\n2. **Перенести содержимое** из `products` в `OmniSupport`\n3. **Переименовать `products`** в другое имя\n4. **Что-то другое**",
+              "status": "completed"
+            },
+            {
+              "id": "step-13",
+              "type": "complete",
+              "timestamp": 1769674013347,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        },
+        {
+          "id": "msg-1769674110895-user",
+          "role": "user",
+          "content": "Мне нужно удалить текущий репозиторий **omni-support** и сделать новый, который будет находиться внутри репозитория **products**. Репозиторий **products** тоже нужно удалить",
+          "timestamp": 1769674110895,
+          "mentions": []
+        },
+        {
+          "id": "msg-1769674128010-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsЭто деструктивная операция - удаление репозиториев. Мне нужно уточнить несколько деталей:Мне нужно уточнить:\n\n1. **Какая организация или пользователь** владеет репозиториями `omni-support` и `products`? (например: `moltbot/omni-support` или `grigorijteresenko/omni-support`)\n\n2. **Подтверждение**: Вы уверены, что хотите удалить оба репозитория? Это действие необратимо - все коммиты, issues, PRs будут потеряны.\n\n3. **Уточнение задачи**: Вы написали \"сделать новый, который будет находиться внутри репозитория products\". Но если products тоже удаляется, что именно вы хотите сделать после удаления? Создать новый репозиторий с каким именем?Мне нужно уточнить:\n\n1. **Какая организация или пользователь** владеет репозиториями `omni-support` и `products`? (например: `moltbot/omni-support` или `grigorijteresenko/omni-support`)\n\n2. **Подтверждение**: Вы уверены, что хотите удалить оба репозитория? Это действие необратимо - все коммиты, issues, PRs будут потеряны.\n\n3. **Уточнение задачи**: Вы написали \"сделать новый, который будет находиться внутри репозитория products\". Но если products тоже удаляется, что именно вы хотите сделать после удаления? Создать новый репозиторий с каким именем?",
+          "timestamp": 1769674128010,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769674115225,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769674118955,
+              "content": "Это деструктивная операция - удаление репозиториев. Мне нужно уточнить несколько деталей:",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "tool_use",
+              "timestamp": 1769674122476,
+              "content": "Using tool: AskUserQuestion",
+              "toolName": "AskUserQuestion",
+              "toolInput": {
+                "questions": [
+                  {
+                    "question": "Какая организация или пользователь владеет этими репозиториями (omni-support и products)?",
+                    "header": "Owner",
+                    "options": [
+                      {
+                        "label": "moltbot",
+                        "description": "Организация moltbot"
+                      },
+                      {
+                        "label": "grigorijteresenko",
+                        "description": "Ваш личный аккаунт"
+                      }
+                    ],
+                    "multiSelect": false
+                  },
+                  {
+                    "question": "Вы уверены, что хотите удалить оба репозитория? Это действие необратимо.",
+                    "header": "Confirm",
+                    "options": [
+                      {
+                        "label": "Да, удалить оба",
+                        "description": "Удалить omni-support и products безвозвратно"
+                      },
+                      {
+                        "label": "Нет, отменить",
+                        "description": "Не удалять репозитории"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              },
+              "status": "running"
+            },
+            {
+              "id": "step-4",
+              "type": "tool_result",
+              "timestamp": 1769674122546,
+              "content": "Answer questions?",
+              "toolOutput": "Answer questions?",
+              "status": "completed"
+            },
+            {
+              "id": "step-5",
+              "type": "text",
+              "timestamp": 1769674127437,
+              "content": "Мне нужно уточнить:\n\n1. **Какая организация или пользователь** владеет репозиториями `omni-support` и `products`? (например: `moltbot/omni-support` или `grigorijteresenko/omni-support`)\n\n2. **Подтверждение**: Вы уверены, что хотите удалить оба репозитория? Это действие необратимо - все коммиты, issues, PRs будут потеряны.\n\n3. **Уточнение задачи**: Вы написали \"сделать новый, который будет находиться внутри репозитория products\". Но если products тоже удаляется, что именно вы хотите сделать после удаления? Создать новый репозиторий с каким именем?",
+              "status": "running"
+            },
+            {
+              "id": "step-6",
+              "type": "text",
+              "timestamp": 1769674127476,
+              "content": "Мне нужно уточнить:\n\n1. **Какая организация или пользователь** владеет репозиториями `omni-support` и `products`? (например: `moltbot/omni-support` или `grigorijteresenko/omni-support`)\n\n2. **Подтверждение**: Вы уверены, что хотите удалить оба репозитория? Это действие необратимо - все коммиты, issues, PRs будут потеряны.\n\n3. **Уточнение задачи**: Вы написали \"сделать новый, который будет находиться внутри репозитория products\". Но если products тоже удаляется, что именно вы хотите сделать после удаления? Создать новый репозиторий с каким именем?",
+              "status": "completed"
+            },
+            {
+              "id": "step-7",
+              "type": "complete",
+              "timestamp": 1769674128010,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        },
+        {
+          "id": "msg-1769675330426-user",
+          "role": "user",
+          "content": "привет",
+          "timestamp": 1769675330426,
+          "mentions": []
+        },
+        {
+          "id": "msg-1769675339337-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsПривет! 👋\n\nЯ PM Agent ассистент. Готов помочь с управлением проектами:\n\n- **GitHub** — issues, PR, репозитории\n- **Файлы** — чтение, анализ, редактирование кода\n- **Веб-поиск** — исследование и сбор информации\n- **Анализ кода** — структура, качество, улучшения\n\nЧем могу помочь?Привет! 👋\n\nЯ PM Agent ассистент. Готов помочь с управлением проектами:\n\n- **GitHub** — issues, PR, репозитории\n- **Файлы** — чтение, анализ, редактирование кода\n- **Веб-поиск** — исследование и сбор информации\n- **Анализ кода** — структура, качество, улучшения\n\nЧем могу помочь?",
+          "timestamp": 1769675339337,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769675334241,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769675338808,
+              "content": "Привет! 👋\n\nЯ PM Agent ассистент. Готов помочь с управлением проектами:\n\n- **GitHub** — issues, PR, репозитории\n- **Файлы** — чтение, анализ, редактирование кода\n- **Веб-поиск** — исследование и сбор информации\n- **Анализ кода** — структура, качество, улучшения\n\nЧем могу помочь?",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "text",
+              "timestamp": 1769675338818,
+              "content": "Привет! 👋\n\nЯ PM Agent ассистент. Готов помочь с управлением проектами:\n\n- **GitHub** — issues, PR, репозитории\n- **Файлы** — чтение, анализ, редактирование кода\n- **Веб-поиск** — исследование и сбор информации\n- **Анализ кода** — структура, качество, улучшения\n\nЧем могу помочь?",
+              "status": "completed"
+            },
+            {
+              "id": "step-4",
+              "type": "complete",
+              "timestamp": 1769675339336,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        },
+        {
+          "id": "msg-1769675709214-user",
+          "role": "user",
+          "content": "привет",
+          "timestamp": 1769675709214,
+          "mentions": []
+        },
+        {
+          "id": "msg-1769675719340-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsПривет! 👋\n\nЯ PM Agent — помощник для управления проектами. Могу помочь с:\n\n- **GitHub**: просмотр и создание issues/PR, информация о репозитории\n- **Код**: анализ файлов, навигация по проекту\n- **Веб-исследования**: поиск информации\n\nЧем могу помочь сегодня?Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Могу помочь с:\n\n- **GitHub**: просмотр и создание issues/PR, информация о репозитории\n- **Код**: анализ файлов, навигация по проекту\n- **Веб-исследования**: поиск информации\n\nЧем могу помочь сегодня?",
+          "timestamp": 1769675719340,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769675713905,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769675718793,
+              "content": "Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Могу помочь с:\n\n- **GitHub**: просмотр и создание issues/PR, информация о репозитории\n- **Код**: анализ файлов, навигация по проекту\n- **Веб-исследования**: поиск информации\n\nЧем могу помочь сегодня?",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "text",
+              "timestamp": 1769675718805,
+              "content": "Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Могу помочь с:\n\n- **GitHub**: просмотр и создание issues/PR, информация о репозитории\n- **Код**: анализ файлов, навигация по проекту\n- **Веб-исследования**: поиск информации\n\nЧем могу помочь сегодня?",
+              "status": "completed"
+            },
+            {
+              "id": "step-4",
+              "type": "complete",
+              "timestamp": 1769675719338,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        },
+        {
+          "id": "msg-1769675747919-user",
+          "role": "user",
+          "content": "привет",
+          "timestamp": 1769675747919,
+          "mentions": []
+        },
+        {
+          "id": "msg-1769675761017-assistant",
+          "role": "assistant",
+          "content": "Agent initialized with 28 toolsПривет! 👋\n\nЯ PM Agent — помощник для управления проектами. Чем могу помочь?\n\nВот что я умею:\n- **GitHub**: просмотр/создание issues и PR, информация о репозитории, статус workflow\n- **Анализ кода**: структура проекта, поиск проблем, рекомендации\n- **Файлы**: чтение, создание, редактирование\n- **Веб-поиск**: поиск информации, анализ страниц\n\nКакую задачу хотите выполнить?Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Чем могу помочь?\n\nВот что я умею:\n- **GitHub**: просмотр/создание issues и PR, информация о репозитории, статус workflow\n- **Анализ кода**: структура проекта, поиск проблем, рекомендации\n- **Файлы**: чтение, создание, редактирование\n- **Веб-поиск**: поиск информации, анализ страниц\n\nКакую задачу хотите выполнить?",
+          "timestamp": 1769675761017,
+          "steps": [
+            {
+              "id": "step-1",
+              "type": "text",
+              "timestamp": 1769675755067,
+              "content": "Agent initialized with 28 tools",
+              "status": "running"
+            },
+            {
+              "id": "step-2",
+              "type": "text",
+              "timestamp": 1769675760311,
+              "content": "Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Чем могу помочь?\n\nВот что я умею:\n- **GitHub**: просмотр/создание issues и PR, информация о репозитории, статус workflow\n- **Анализ кода**: структура проекта, поиск проблем, рекомендации\n- **Файлы**: чтение, создание, редактирование\n- **Веб-поиск**: поиск информации, анализ страниц\n\nКакую задачу хотите выполнить?",
+              "status": "running"
+            },
+            {
+              "id": "step-3",
+              "type": "text",
+              "timestamp": 1769675760356,
+              "content": "Привет! 👋\n\nЯ PM Agent — помощник для управления проектами. Чем могу помочь?\n\nВот что я умею:\n- **GitHub**: просмотр/создание issues и PR, информация о репозитории, статус workflow\n- **Анализ кода**: структура проекта, поиск проблем, рекомендации\n- **Файлы**: чтение, создание, редактирование\n- **Веб-поиск**: поиск информации, анализ страниц\n\nКакую задачу хотите выполнить?",
+              "status": "completed"
+            },
+            {
+              "id": "step-4",
+              "type": "complete",
+              "timestamp": 1769675761013,
+              "content": "Task completed",
+              "status": "completed"
+            }
+          ],
+          "success": true
+        }
+      ],
+      "createdAt": 1769673242247,
+      "updatedAt": 1769675761017
+    }
+  ],
+  "currentSessionId": "session-1769676407375"
+}
