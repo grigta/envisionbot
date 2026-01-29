@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-[#191919] text-gray-100 flex">
+  <div class="min-h-screen flex" style="background-color: var(--color-bg-primary); color: var(--color-text-primary);">
     <!-- Sidebar -->
-    <aside class="w-60 bg-[#191919] border-r border-[#2d2d2d] flex flex-col fixed h-screen">
+    <aside class="w-60 border-r flex flex-col fixed h-screen" style="background-color: var(--color-bg-primary); border-color: var(--color-border);">
       <!-- Logo -->
-      <div class="p-4 border-b border-[#2d2d2d] h-[57px] flex items-center">
+      <div class="p-4 border-b h-[57px] flex items-center" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2 w-full">
           <div class="w-6 h-6 bg-gradient-to-br from-cyan-400 to-blue-500 rounded flex items-center justify-center">
             <span class="text-xs font-bold text-white">E</span>
@@ -35,24 +35,24 @@
         </NuxtLink>
 
         <!-- Divider -->
-        <div class="h-px bg-[#2d2d2d] my-3" />
+        <div class="h-px my-3" style="background-color: var(--color-border);" />
 
         <!-- Quick Actions -->
         <div class="px-2 py-1">
-          <span class="text-xs text-gray-500 uppercase tracking-wider">Quick Actions</span>
+          <span class="text-xs uppercase tracking-wider" style="color: var(--color-text-muted);">Quick Actions</span>
         </div>
         <button
           @click="showNewIdeaModal = true"
-          class="nav-item w-full text-left hover:bg-[#2d2d2d]"
+          class="nav-item w-full text-left"
         >
           <UIcon name="i-heroicons-plus" class="w-4 h-4 opacity-60" />
           <span>New Idea</span>
-          <kbd class="ml-auto text-[10px] text-gray-500 bg-[#2d2d2d] px-1.5 py-0.5 rounded">N</kbd>
+          <kbd class="ml-auto text-[10px] px-1.5 py-0.5 rounded" style="color: var(--color-text-muted); background-color: var(--color-bg-tertiary);">N</kbd>
         </button>
         <button
           @click="runQuickAnalysis"
           :disabled="analysisLoading"
-          class="nav-item w-full text-left hover:bg-[#2d2d2d]"
+          class="nav-item w-full text-left"
         >
           <UIcon
             :name="analysisLoading ? 'i-heroicons-arrow-path' : 'i-heroicons-sparkles'"
@@ -64,16 +64,16 @@
       </nav>
 
       <!-- User/Status section -->
-      <div class="p-3 border-t border-[#2d2d2d]">
+      <div class="p-3 border-t" style="border-color: var(--color-border);">
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm text-gray-400">
+          <div class="flex items-center gap-2 text-sm" style="color: var(--color-text-secondary);">
             <div class="w-2 h-2 rounded-full" :class="wsConnected ? 'bg-green-500' : 'bg-red-500'" />
             <span>{{ authUser?.name || (wsConnected ? 'Connected' : 'Disconnected') }}</span>
           </div>
           <button
             v-if="isAuthenticated"
             @click="handleLogout"
-            class="text-gray-500 hover:text-white transition-colors p-1"
+            class="logout-button transition-colors p-1"
             title="Logout"
           >
             <UIcon name="i-heroicons-arrow-right-on-rectangle" class="w-4 h-4" />
@@ -85,27 +85,33 @@
     <!-- Main content -->
     <main class="flex-1 ml-60">
       <!-- Top bar -->
-      <header class="sticky top-0 z-10 bg-[#191919]/80 backdrop-blur-sm border-b border-[#2d2d2d] h-[57px]">
+      <header class="sticky top-0 z-10 backdrop-blur-sm border-b h-[57px]" style="background-color: rgba(var(--color-bg-primary-rgb, 25, 25, 25), 0.8); border-color: var(--color-border);">
         <div class="px-8 h-full flex items-center justify-between">
           <!-- Breadcrumb -->
           <div class="flex items-center gap-2 text-sm">
-            <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
+            <NuxtLink to="/" class="transition-colors" style="color: var(--color-text-muted);">
               Home
             </NuxtLink>
             <template v-if="currentPage">
-              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-600" />
-              <span class="text-white">{{ currentPage }}</span>
+              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" style="color: var(--color-text-muted);" />
+              <span style="color: var(--color-text-primary);">{{ currentPage }}</span>
             </template>
           </div>
 
-          <!-- Search (placeholder) -->
-          <button
-            class="flex items-center gap-2 px-3 py-1.5 bg-[#2d2d2d] rounded-lg text-sm text-gray-400 hover:bg-[#363636] transition-colors"
-          >
-            <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
-            <span>Search...</span>
-            <kbd class="text-[10px] bg-[#404040] px-1.5 py-0.5 rounded">⌘K</kbd>
-          </button>
+          <!-- Actions -->
+          <div class="flex items-center gap-2">
+            <!-- Theme Toggle -->
+            <ThemeToggle />
+
+            <!-- Search (placeholder) -->
+            <button
+              class="search-button flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
+            >
+              <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
+              <span>Search...</span>
+              <kbd class="text-[10px] px-1.5 py-0.5 rounded" style="background-color: var(--color-bg-active);">⌘K</kbd>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -118,13 +124,12 @@
     <!-- New Idea Modal -->
     <UModal v-model="showNewIdeaModal">
       <div class="p-6 space-y-4">
-        <h3 class="text-lg font-semibold text-white">New Idea</h3>
+        <h3 class="text-lg font-semibold" style="color: var(--color-text-primary);">New Idea</h3>
         <UFormGroup label="Title">
           <UInput
             v-model="newIdea.title"
             placeholder="What's your idea?"
             size="lg"
-            class="bg-[#2d2d2d] border-[#404040]"
           />
         </UFormGroup>
         <UFormGroup label="Description">
@@ -132,7 +137,6 @@
             v-model="newIdea.description"
             placeholder="Describe your idea in detail..."
             :rows="5"
-            class="bg-[#2d2d2d] border-[#404040]"
           />
         </UFormGroup>
         <div class="flex justify-end gap-2 pt-2">
@@ -261,11 +265,18 @@ onMounted(() => {
 
 <style>
 .nav-item {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-gray-400 hover:text-white hover:bg-[#2d2d2d] transition-all duration-150 cursor-pointer;
+  @apply flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all duration-150 cursor-pointer;
+  color: var(--color-text-secondary);
+}
+
+.nav-item:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-tertiary);
 }
 
 .nav-item-active {
-  @apply text-white bg-[#2d2d2d];
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-tertiary);
 }
 
 /* Custom scrollbar */
@@ -279,11 +290,28 @@ onMounted(() => {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #404040;
+  background: var(--color-bg-active);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #505050;
+}
+
+.logout-button {
+  color: var(--color-text-muted);
+}
+
+.logout-button:hover {
+  color: var(--color-text-primary);
+}
+
+.search-button {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}
+
+.search-button:hover {
+  background-color: var(--color-bg-hover);
 }
 </style>
