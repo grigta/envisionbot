@@ -6,7 +6,8 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
 
   colorMode: {
-    preference: "dark",
+    preference: "system", // Use system preference by default
+    fallback: "dark", // Fallback to dark if system preference is unavailable
   },
 
   runtimeConfig: {

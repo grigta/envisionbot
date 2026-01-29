@@ -6,9 +6,14 @@
 </template>
 
 <style>
-/* Override Nuxt UI notification styles for dark theme */
+/* Override Nuxt UI notification styles */
 .dark .notification {
   background-color: #2d2d2d;
   border-color: #404040;
+}
+
+.light .notification {
+  background-color: #ffffff;
+  border-color: #e5e7eb;
 }
 </style>
