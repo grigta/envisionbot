@@ -283,6 +283,93 @@ export async function startServer(): Promise<void> {
   });
 
   // ============================================
+  // NOTIFICATION PREFERENCES API
+  // ============================================
+
+  // Get notification preferences for current user
+  fastify.get("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const repo = new NotificationPreferencesRepository(deps);
+
+      // Get preferences for this user's access code (or default)
+      const prefs = await repo.getByAccessCode(user?.sub);
+      return prefs;
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      return reply.status(500).send({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update notification preferences for current user
+  fastify.put<{
+    Body: {
+      emailEnabled?: boolean;
+      emailAddress?: string;
+      telegramEnabled?: boolean;
+      telegramChatId?: string;
+      quietHoursEnabled?: boolean;
+      quietHoursStart?: string;
+      quietHoursEnd?: string;
+      quietHoursTimezone?: string;
+      enabledNotificationTypes?: string[];
+      minimumPriority?: "low" | "medium" | "high" | "critical";
+    };
+  }>("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const repo = new NotificationPreferencesRepository(deps);
+
+      const prefs = await repo.update(user?.sub, request.body);
+      return prefs;
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      return reply.status(500).send({ error: "Failed to update preferences" });
+    }
+  });
+
+  // Check if currently in quiet hours
+  fastify.get("/api/user/notification-preferences/quiet-hours-check", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const { NotificationService } = await import("./services/notification.service.js");
+
+      const repo = new NotificationPreferencesRepository(deps);
+      const prefs = await repo.getByAccessCode(user?.sub);
+      const check = NotificationService.checkQuietHours(prefs);
+
+      return check;
+    } catch (error) {
+      console.error("Error checking quiet hours:", error);
+      return reply.status(500).send({ error: "Failed to check quiet hours" });
+    }
+  });
+
+  // ============================================
   // GITHUB WEBHOOK ENDPOINT
   // ============================================
 

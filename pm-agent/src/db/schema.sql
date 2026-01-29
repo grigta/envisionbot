@@ -599,3 +599,34 @@ CREATE TABLE IF NOT EXISTS competitor_reports (
 
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_type ON competitor_reports(report_type);
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_created ON competitor_reports(created_at DESC);
+
+-- ============================================
+-- NOTIFICATION PREFERENCES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    id TEXT PRIMARY KEY,
+    access_code_id TEXT REFERENCES access_codes(id) ON DELETE CASCADE,
+    -- Email notifications
+    email_enabled INTEGER NOT NULL DEFAULT 0,
+    email_address TEXT,
+    -- Telegram notifications
+    telegram_enabled INTEGER NOT NULL DEFAULT 1,
+    telegram_chat_id TEXT,
+    -- Quiet hours
+    quiet_hours_enabled INTEGER NOT NULL DEFAULT 0,
+    quiet_hours_start TEXT, -- Format: "HH:MM" (e.g., "22:00")
+    quiet_hours_end TEXT, -- Format: "HH:MM" (e.g., "08:00")
+    quiet_hours_timezone TEXT DEFAULT 'UTC',
+    -- Notification filters
+    enabled_notification_types TEXT NOT NULL DEFAULT '[]', -- JSON array of notification types
+    minimum_priority TEXT NOT NULL DEFAULT 'low' CHECK (minimum_priority IN ('low', 'medium', 'high', 'critical')),
+    -- Metadata
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_access_code ON notification_preferences(access_code_id);
+
+-- Default preferences (global fallback when access_code_id is NULL)
+INSERT OR IGNORE INTO notification_preferences (id, access_code_id, email_enabled, telegram_enabled, quiet_hours_enabled, minimum_priority, created_at, updated_at)
+VALUES ('default', NULL, 0, 1, 0, 'low', strftime('%s', 'now') * 1000, strftime('%s', 'now') * 1000);

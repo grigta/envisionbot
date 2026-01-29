@@ -383,3 +383,34 @@ export interface WebhookProcessingResult {
   taskUpdated?: boolean;
   taskId?: string;
 }
+
+// Notification Preferences
+export type NotificationPriority = "low" | "medium" | "high" | "critical";
+export type NotificationType = "task" | "alert" | "report" | "system" | "idea" | "chat";
+
+export interface NotificationPreferences {
+  id: string;
+  accessCodeId?: string; // null = global default
+  // Email
+  emailEnabled: boolean;
+  emailAddress?: string;
+  // Telegram
+  telegramEnabled: boolean;
+  telegramChatId?: string;
+  // Quiet hours
+  quietHoursEnabled: boolean;
+  quietHoursStart?: string; // "HH:MM"
+  quietHoursEnd?: string; // "HH:MM"
+  quietHoursTimezone?: string;
+  // Filters
+  enabledNotificationTypes: NotificationType[];
+  minimumPriority: NotificationPriority;
+  // Metadata
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QuietHoursCheck {
+  isQuietTime: boolean;
+  reason?: string;
+}
