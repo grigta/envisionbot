@@ -1,33 +1,49 @@
 <template>
-  <div class="fixed inset-0 left-60 flex">
+  <div class="fixed inset-0 lg:left-60 flex">
+    <!-- Mobile Menu Backdrop -->
+    <div
+      v-if="chatSidebarOpen"
+      @click="chatSidebarOpen = false"
+      class="fixed inset-0 bg-black/50 z-20 lg:hidden"
+    />
+
     <!-- Sidebar (fixed position) -->
     <ChatSidebar
       :sessions="sessions"
       :current-session-id="currentSessionId"
       :loading="loadingSessions"
+      :is-open="chatSidebarOpen"
       @new-chat="createNewSession"
-      @select="switchSession"
+      @select="handleSessionSelect"
       @delete="deleteSession"
     />
 
     <!-- Main Chat Area (fixed, starts after chat sidebar) -->
-    <div class="flex-1 flex flex-col min-w-0 ml-60 bg-[#191919]">
+    <div class="flex-1 flex flex-col min-w-0 lg:ml-60 bg-[#191919]">
       <!-- Header (matches sidebar header height) -->
-      <div class="h-[57px] flex items-center justify-between px-8 border-b border-[#2d2d2d] flex-shrink-0">
-        <div>
-          <h1 class="text-lg font-semibold text-white">Envision CEO Chat</h1>
+      <div class="h-[57px] flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-[#2d2d2d] flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Hamburger Menu (Mobile Only) -->
+          <button
+            @click="chatSidebarOpen = !chatSidebarOpen"
+            class="lg:hidden p-2 rounded-lg hover:bg-[#2d2d2d] transition-colors"
+          >
+            <UIcon name="i-heroicons-bars-3" class="w-5 h-5 text-white" />
+          </button>
+
+          <h1 class="text-base sm:text-lg font-semibold text-white">Envision CEO Chat</h1>
         </div>
         <div class="flex items-center gap-2">
           <!-- Connection status -->
           <div
-            class="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            class="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg"
             :class="wsConnected ? 'bg-green-500/10' : 'bg-red-500/10'"
           >
             <div
               class="w-2 h-2 rounded-full"
               :class="wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"
             />
-            <span class="text-sm" :class="wsConnected ? 'text-green-400' : 'text-red-400'">
+            <span class="text-xs sm:text-sm hidden sm:inline" :class="wsConnected ? 'text-green-400' : 'text-red-400'">
               {{ wsConnected ? 'Connected' : 'Disconnected' }}
             </span>
           </div>
@@ -37,7 +53,7 @@
       <!-- Messages Container -->
       <div
         ref="messagesContainer"
-        class="flex-1 overflow-y-auto space-y-6 px-8 py-6"
+        class="flex-1 overflow-y-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8 py-4 sm:py-6"
       >
         <!-- Empty State -->
         <div v-if="messages.length === 0 && !isProcessing" class="h-full flex flex-col items-center justify-center text-center">
@@ -92,7 +108,7 @@
       </div>
 
       <!-- Input -->
-      <div class="px-8 pb-6">
+      <div class="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6">
         <ChatInput
           v-model="input"
           :disabled="isProcessing"
@@ -145,6 +161,9 @@ const sessions = ref<ChatSession[]>([]);
 const currentSessionId = ref<string | null>(null);
 const loadingSessions = ref(true);
 
+// Mobile chat sidebar state
+const chatSidebarOpen = ref(false);
+
 const examplePrompts = [
   "List open issues in @envisionbot",
   "Check CI status for @my-project",
@@ -164,6 +183,13 @@ async function fetchSessions() {
       color: "red",
     });
   }
+}
+
+// Handle session selection (with mobile sidebar close)
+async function handleSessionSelect(sessionId: string) {
+  await switchSession(sessionId);
+  // Close mobile sidebar on small screens
+  chatSidebarOpen.value = false;
 }
 
 // Switch to a different session

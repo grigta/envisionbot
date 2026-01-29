@@ -422,6 +422,15 @@ export function useApi() {
   const deleteCompetitorReport = (reportId: string) =>
     fetchApi<{ success: boolean }>(`/api/competitors/reports/${reportId}`, { method: "DELETE" });
 
+  // Notification Preferences
+  const getNotificationPreferences = () => fetchApi<NotificationPreferences>("/api/user/notification-preferences");
+  const updateNotificationPreferences = (data: Partial<NotificationPreferences>) =>
+    fetchApi<NotificationPreferences>("/api/user/notification-preferences", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  const checkQuietHours = () => fetchApi<QuietHoursCheck>("/api/user/notification-preferences/quiet-hours-check");
+
   return {
     // Projects
     getProjects,
@@ -514,6 +523,10 @@ export function useApi() {
     getCompetitorReports,
     getCompetitorReport,
     deleteCompetitorReport,
+    // Notification Preferences
+    getNotificationPreferences,
+    updateNotificationPreferences,
+    checkQuietHours,
   };
 }
 
@@ -1014,4 +1027,30 @@ export interface CrawlerStats {
   totalItems: number;
   processedItems: number;
   lastCrawlAt?: number;
+}
+
+// Notification Preferences types
+export type NotificationPriority = "low" | "medium" | "high" | "critical";
+export type NotificationType = "task" | "alert" | "report" | "system" | "idea" | "chat";
+
+export interface NotificationPreferences {
+  id: string;
+  accessCodeId?: string;
+  emailEnabled: boolean;
+  emailAddress?: string;
+  telegramEnabled: boolean;
+  telegramChatId?: string;
+  quietHoursEnabled: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  quietHoursTimezone?: string;
+  enabledNotificationTypes: NotificationType[];
+  minimumPriority: NotificationPriority;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QuietHoursCheck {
+  isQuietTime: boolean;
+  reason?: string;
 }

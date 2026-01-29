@@ -24,7 +24,12 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     local_path TEXT,
-    last_analysis_at INTEGER
+    last_analysis_at INTEGER,
+    -- Project-level health check and alert settings
+    health_check_interval_hours INTEGER CHECK (health_check_interval_hours IS NULL OR health_check_interval_hours > 0),
+    alert_threshold_health_score INTEGER CHECK (alert_threshold_health_score IS NULL OR (alert_threshold_health_score >= 0 AND alert_threshold_health_score <= 100)),
+    alert_threshold_open_issues INTEGER CHECK (alert_threshold_open_issues IS NULL OR alert_threshold_open_issues >= 0),
+    alert_on_ci_failure INTEGER DEFAULT 1 CHECK (alert_on_ci_failure IN (0, 1))
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_repo ON projects(repo);
@@ -73,6 +78,22 @@ CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status)
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tasks_github_issue ON tasks(github_issue_number);
 CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_state ON tasks(github_issue_state);
+
+-- ============================================
+-- TASK DEPENDENCIES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS task_dependencies (
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    type TEXT NOT NULL DEFAULT 'depends_on' CHECK (type IN ('depends_on', 'blocks')),
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+    PRIMARY KEY (task_id, depends_on_task_id),
+    CHECK (task_id != depends_on_task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(type);
 
 -- ============================================
 -- PENDING ACTIONS TABLE
