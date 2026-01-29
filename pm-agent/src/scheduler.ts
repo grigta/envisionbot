@@ -1,5 +1,5 @@
 import schedule from "node-schedule";
-import { runHealthCheck, runDeepAnalysis } from "./agent.js";
+import { runHealthCheck, runDeepAnalysis, checkAlertThresholds } from "./agent.js";
 import { sendNotification } from "./approval/telegram-bot.js";
 import { stateStore } from "./state/store.js";
 import { broadcast } from "./server.js";
@@ -84,6 +84,25 @@ export function startScheduler(): void {
             `Summary: ${report.summary.slice(0, 200)}...`
         );
       }
+
+      // Check project-specific alert thresholds
+      if (report?.projectReports) {
+        const projects = stateStore.getProjects();
+        for (const projectReport of report.projectReports) {
+          const project = projects.find((p) => p.id === projectReport.projectId);
+          if (project) {
+            const alerts = checkAlertThresholds(project, projectReport);
+            if (alerts.length > 0) {
+              await sendNotification(
+                `⚠️ *Alert: ${project.name}*\n\n` +
+                  alerts.map((a) => `• ${a}`).join("\n") +
+                  `\n\nHealth Score: ${projectReport.healthScore}`
+              );
+            }
+          }
+        }
+      }
+
       console.log("✅ Health check completed");
     } catch (error) {
       console.error("❌ Health check failed:", error);

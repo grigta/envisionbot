@@ -38,7 +38,7 @@ export interface Database {
   close: () => Promise<void>;
 }
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * Run incremental migrations
@@ -170,6 +170,28 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     `);
 
     setSchemaVersion(sqlite, 5, "Add GitHub Issue fields");
+  }
+
+  // Migration v5 -> v6: Add project-level health check and alert settings
+  if (fromVersion < 6) {
+    console.log("Running migration v6: Add project-level health check and alert settings");
+
+    const columns = [
+      "ALTER TABLE projects ADD COLUMN health_check_interval_hours REAL",
+      "ALTER TABLE projects ADD COLUMN alert_threshold_health_score INTEGER CHECK (alert_threshold_health_score IS NULL OR (alert_threshold_health_score >= 0 AND alert_threshold_health_score <= 100))",
+      "ALTER TABLE projects ADD COLUMN alert_threshold_open_issues INTEGER CHECK (alert_threshold_open_issues IS NULL OR alert_threshold_open_issues >= 0)",
+      "ALTER TABLE projects ADD COLUMN alert_on_ci_failure INTEGER NOT NULL DEFAULT 1"
+    ];
+
+    for (const sql of columns) {
+      try {
+        sqlite.exec(sql);
+      } catch (error) {
+        // Column already exists, skip
+      }
+    }
+
+    setSchemaVersion(sqlite, 6, "Add project-level health check and alert settings");
   }
 }
 

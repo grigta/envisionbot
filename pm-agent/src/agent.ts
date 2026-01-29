@@ -499,6 +499,66 @@ ${projectsContext}
   return report;
 }
 
+/**
+ * Check if a project's metrics exceed alert thresholds
+ * Returns array of triggered alerts
+ */
+export function checkAlertThresholds(
+  project: Project,
+  projectReport?: ProjectReport
+): string[] {
+  const alerts: string[] = [];
+
+  if (!projectReport) {
+    return alerts;
+  }
+
+  // Check health score threshold
+  if (
+    project.alertThresholdHealthScore !== undefined &&
+    projectReport.healthScore < project.alertThresholdHealthScore
+  ) {
+    alerts.push(
+      `Health score (${projectReport.healthScore}) below threshold (${project.alertThresholdHealthScore})`
+    );
+  }
+
+  // Check open issues threshold
+  if (
+    project.alertThresholdOpenIssues !== undefined &&
+    projectReport.openIssues > project.alertThresholdOpenIssues
+  ) {
+    alerts.push(
+      `Open issues (${projectReport.openIssues}) exceed threshold (${project.alertThresholdOpenIssues})`
+    );
+  }
+
+  // Check CI failure alert
+  if (
+    project.alertOnCiFailure !== false &&
+    projectReport.ciStatus === "failing"
+  ) {
+    alerts.push(`CI/CD is failing`);
+  }
+
+  return alerts;
+}
+
+/**
+ * Check if a project is due for health check based on custom interval
+ * Returns true if due, false otherwise
+ */
+export function isProjectDueForHealthCheck(
+  project: Project,
+  lastCheckTime: number,
+  globalIntervalHours: number
+): boolean {
+  const intervalHours = project.healthCheckIntervalHours ?? globalIntervalHours;
+  const intervalMs = intervalHours * 60 * 60 * 1000;
+  const now = Date.now();
+  return now - lastCheckTime >= intervalMs;
+}
+
 // Deep analysis prompt - uses Claude Code CLI with streaming for real-time updates
 export async function runDeepAnalysis(): Promise<AnalysisReport | undefined> {
   const projects = stateStore.getProjects();

@@ -252,25 +252,50 @@ export async function startServer(): Promise<void> {
     return stateStore.getMetrics(request.params.id);
   });
 
-  fastify.post<{ Body: { id: string; name: string; repo: string; phase?: string; goals?: string[]; focusAreas?: string[] } }>(
-    "/api/projects",
-    async (request) => {
-      const { id, name, repo, phase = "planning", goals = [], focusAreas = [] } = request.body;
-      const project = {
-        id,
-        name,
-        repo,
-        phase: phase as "planning",
-        monitoringLevel: "standard" as const,
-        goals,
-        focusAreas: focusAreas as ("ci-cd" | "issues" | "prs")[],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      stateStore.addProject(project);
-      return project;
-    }
-  );
+  fastify.post<{
+    Body: {
+      id: string;
+      name: string;
+      repo: string;
+      phase?: string;
+      goals?: string[];
+      focusAreas?: string[];
+      healthCheckIntervalHours?: number;
+      alertThresholdHealthScore?: number;
+      alertThresholdOpenIssues?: number;
+      alertOnCiFailure?: boolean;
+    };
+  }>("/api/projects", async (request) => {
+    const {
+      id,
+      name,
+      repo,
+      phase = "planning",
+      goals = [],
+      focusAreas = [],
+      healthCheckIntervalHours,
+      alertThresholdHealthScore,
+      alertThresholdOpenIssues,
+      alertOnCiFailure,
+    } = request.body;
+    const project = {
+      id,
+      name,
+      repo,
+      phase: phase as "planning",
+      monitoringLevel: "standard" as const,
+      goals,
+      focusAreas: focusAreas as ("ci-cd" | "issues" | "prs")[],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      healthCheckIntervalHours,
+      alertThresholdHealthScore,
+      alertThresholdOpenIssues,
+      alertOnCiFailure,
+    };
+    stateStore.addProject(project);
+    return project;
+  });
 
   fastify.delete<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
     const project = stateStore.getProject(request.params.id);

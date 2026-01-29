@@ -15,6 +15,10 @@ interface ProjectRow {
   focus_areas: string;
   created_at: number;
   updated_at: number;
+  health_check_interval_hours: number | null;
+  alert_threshold_health_score: number | null;
+  alert_threshold_open_issues: number | null;
+  alert_on_ci_failure: number;
 }
 
 export class ProjectRepository extends BaseRepository<Project> {
@@ -34,6 +38,10 @@ export class ProjectRepository extends BaseRepository<Project> {
       focusAreas: JSON.parse(row.focus_areas) as FocusArea[],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      healthCheckIntervalHours: row.health_check_interval_hours ?? undefined,
+      alertThresholdHealthScore: row.alert_threshold_health_score ?? undefined,
+      alertThresholdOpenIssues: row.alert_threshold_open_issues ?? undefined,
+      alertOnCiFailure: row.alert_on_ci_failure === 1,
     };
   }
 
@@ -85,8 +93,9 @@ export class ProjectRepository extends BaseRepository<Project> {
 
   async upsert(project: Project): Promise<Project> {
     const stmt = this.db.prepare(`
-      INSERT INTO projects (id, name, repo, phase, monitoring_level, goals, focus_areas, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, name, repo, phase, monitoring_level, goals, focus_areas, created_at, updated_at,
+        health_check_interval_hours, alert_threshold_health_score, alert_threshold_open_issues, alert_on_ci_failure)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         repo = excluded.repo,
@@ -94,7 +103,11 @@ export class ProjectRepository extends BaseRepository<Project> {
         monitoring_level = excluded.monitoring_level,
         goals = excluded.goals,
         focus_areas = excluded.focus_areas,
-        updated_at = excluded.updated_at
+        updated_at = excluded.updated_at,
+        health_check_interval_hours = excluded.health_check_interval_hours,
+        alert_threshold_health_score = excluded.alert_threshold_health_score,
+        alert_threshold_open_issues = excluded.alert_threshold_open_issues,
+        alert_on_ci_failure = excluded.alert_on_ci_failure
     `);
 
     stmt.run(
@@ -106,7 +119,11 @@ export class ProjectRepository extends BaseRepository<Project> {
       JSON.stringify(project.goals),
       JSON.stringify(project.focusAreas),
       project.createdAt,
-      project.updatedAt
+      project.updatedAt,
+      project.healthCheckIntervalHours ?? null,
+      project.alertThresholdHealthScore ?? null,
+      project.alertThresholdOpenIssues ?? null,
+      project.alertOnCiFailure !== false ? 1 : 0
     );
 
     await this.invalidateCache(

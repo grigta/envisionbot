@@ -9,6 +9,11 @@ export interface Project {
   focusAreas: FocusArea[];
   createdAt: number;
   updatedAt: number;
+  // Project-level health check and alert settings
+  healthCheckIntervalHours?: number; // Custom interval (overrides global HEALTH_CHECK_INTERVAL)
+  alertThresholdHealthScore?: number; // Alert if health score drops below this (0-100)
+  alertThresholdOpenIssues?: number; // Alert if open issues exceed this number
+  alertOnCiFailure?: boolean; // Alert when CI fails (default: true)
 }
 
 export type FocusArea = "ci-cd" | "issues" | "prs" | "security" | "dependencies" | "performance";

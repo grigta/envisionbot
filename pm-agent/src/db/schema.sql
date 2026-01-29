@@ -24,7 +24,12 @@ CREATE TABLE IF NOT EXISTS projects (
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     local_path TEXT,
-    last_analysis_at INTEGER
+    last_analysis_at INTEGER,
+    -- Project-level health check and alert settings (v6)
+    health_check_interval_hours REAL,
+    alert_threshold_health_score INTEGER CHECK (alert_threshold_health_score IS NULL OR (alert_threshold_health_score >= 0 AND alert_threshold_health_score <= 100)),
+    alert_threshold_open_issues INTEGER CHECK (alert_threshold_open_issues IS NULL OR alert_threshold_open_issues >= 0),
+    alert_on_ci_failure INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_repo ON projects(repo);
