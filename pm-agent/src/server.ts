@@ -15,7 +15,7 @@ import { runAgentTaskStreaming, type AgentStep } from "./tools/claude-code.js";
 import { createProjectAnalyzer } from "./services/project-analyzer.service.js";
 import { PlanRepository } from "./repositories/plan.repository.js";
 import { AuthRepository } from "./repositories/auth.repository.js";
-import { createAuthHook, signToken, decodeToken } from "./auth/index.js";
+import { createAuthHook, createRateLimitHook, signToken, decodeToken } from "./auth/index.js";
 import { getAuthConfig } from "./auth.js";
 import type { AnalysisStatus, ProjectPlan, KanbanStatus } from "./types.js";
 import type { CrawlerServiceAuthConfig } from "./services/crawler.service.js";
@@ -147,6 +147,15 @@ export async function startServer(): Promise<void> {
   if (!deps) {
     throw new Error("Failed to initialize database - cannot start server without auth");
   }
+
+  // Register rate limiting (before auth to limit all requests)
+  fastify.addHook("onRequest", createRateLimitHook(deps, {
+    max: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
+    windowSec: parseInt(process.env.RATE_LIMIT_WINDOW_SEC || "60", 10),
+    authenticatedMax: parseInt(process.env.RATE_LIMIT_AUTH_MAX || "300", 10),
+    skipPaths: ["/api/health"],
+  }));
+
   fastify.addHook("onRequest", createAuthHook(deps));
 
   // ============================================
