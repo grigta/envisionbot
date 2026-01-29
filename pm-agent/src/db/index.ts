@@ -38,7 +38,7 @@ export interface Database {
   close: () => Promise<void>;
 }
 
-const CURRENT_SCHEMA_VERSION = 6;
+const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * Run incremental migrations
@@ -224,6 +224,28 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     `);
 
     setSchemaVersion(sqlite, 6, "Update kanban_status constraint to support all statuses");
+  }
+
+  // Migration v6 -> v7: Add task_dependencies table
+  if (fromVersion < 7) {
+    console.log("Running migration v7: Add task_dependencies table");
+
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        type TEXT NOT NULL DEFAULT 'depends_on' CHECK (type IN ('depends_on', 'blocks')),
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        PRIMARY KEY (task_id, depends_on_task_id),
+        CHECK (task_id != depends_on_task_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(type);
+    `);
+
+    setSchemaVersion(sqlite, 7, "Add task_dependencies table");
   }
 }
 

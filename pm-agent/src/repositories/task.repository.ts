@@ -2,7 +2,7 @@
  * Task Repository
  */
 
-import type { Task, TaskStatus, KanbanStatus, SuggestedAction } from "../types.js";
+import type { Task, TaskStatus, KanbanStatus, SuggestedAction, TaskDependency } from "../types.js";
 import { BaseRepository, type RepositoryDeps } from "./base.repository.js";
 
 interface TaskRow {
@@ -325,6 +325,260 @@ export class TaskRepository extends BaseRepository<Task> {
 
       await this.publishEvent("task_deleted", { id });
       return true;
+    }
+
+    return false;
+  }
+
+  // ============================================
+  // TASK DEPENDENCIES
+  // ============================================
+
+  /**
+   * Add a dependency relationship between tasks
+   * Prevents circular dependencies
+   */
+  async addDependency(
+    taskId: string,
+    dependsOnTaskId: string,
+    type: "depends_on" | "blocks" = "depends_on"
+  ): Promise<{ success: boolean; error?: string }> {
+    // Validate both tasks exist
+    const task = await this.getById(taskId);
+    const dependsOnTask = await this.getById(dependsOnTaskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+    if (!dependsOnTask) {
+      return { success: false, error: "Dependency task not found" };
+    }
+
+    // Check for circular dependency
+    const wouldCreateCycle = await this.wouldCreateCircularDependency(taskId, dependsOnTaskId);
+    if (wouldCreateCycle) {
+      return { success: false, error: "Cannot add dependency: would create circular dependency" };
+    }
+
+    // Add the dependency
+    try {
+      const stmt = this.db.prepare(`
+        INSERT INTO task_dependencies (task_id, depends_on_task_id, type, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      stmt.run(taskId, dependsOnTaskId, type, Date.now());
+
+      await this.invalidateCache(
+        this.entityCacheKey(taskId),
+        this.entityCacheKey(dependsOnTaskId),
+        `pm:tasks:project:${task.projectId}`
+      );
+
+      await this.publishEvent("task_dependency_added", { taskId, dependsOnTaskId, type });
+
+      return { success: true };
+    } catch (error) {
+      // Check if it's a unique constraint violation
+      if (error instanceof Error && error.message.includes("UNIQUE")) {
+        return { success: false, error: "Dependency already exists" };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Remove a dependency relationship
+   */
+  async removeDependency(taskId: string, dependsOnTaskId: string): Promise<boolean> {
+    const task = await this.getById(taskId);
+    if (!task) return false;
+
+    const stmt = this.db.prepare(`
+      DELETE FROM task_dependencies
+      WHERE task_id = ? AND depends_on_task_id = ?
+    `);
+
+    const result = stmt.run(taskId, dependsOnTaskId);
+
+    if (result.changes > 0) {
+      await this.invalidateCache(
+        this.entityCacheKey(taskId),
+        this.entityCacheKey(dependsOnTaskId),
+        `pm:tasks:project:${task.projectId}`
+      );
+
+      await this.publishEvent("task_dependency_removed", { taskId, dependsOnTaskId });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get all tasks that this task depends on
+   */
+  async getDependencies(taskId: string): Promise<Task[]> {
+    const stmt = this.db.prepare(`
+      SELECT t.* FROM tasks t
+      INNER JOIN task_dependencies td ON td.depends_on_task_id = t.id
+      WHERE td.task_id = ?
+      ORDER BY t.priority, t.generated_at DESC
+    `);
+
+    const rows = stmt.all(taskId) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
+   * Get all tasks that depend on this task
+   */
+  async getDependents(taskId: string): Promise<Task[]> {
+    const stmt = this.db.prepare(`
+      SELECT t.* FROM tasks t
+      INNER JOIN task_dependencies td ON td.task_id = t.id
+      WHERE td.depends_on_task_id = ?
+      ORDER BY t.priority, t.generated_at DESC
+    `);
+
+    const rows = stmt.all(taskId) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
+   * Check if all dependencies for a task are completed
+   */
+  async areDependenciesMet(taskId: string): Promise<boolean> {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count
+      FROM task_dependencies td
+      INNER JOIN tasks t ON t.id = td.depends_on_task_id
+      WHERE td.task_id = ?
+        AND t.status != 'completed'
+    `);
+
+    const result = stmt.get(taskId) as { count: number };
+    return result.count === 0;
+  }
+
+  /**
+   * Get task with its dependency information populated
+   */
+  async getTaskWithDependencies(taskId: string): Promise<Task | undefined> {
+    const task = await this.getById(taskId);
+    if (!task) return undefined;
+
+    const [dependsOn, blocks] = await Promise.all([
+      this.getDependencies(taskId),
+      this.getDependents(taskId),
+    ]);
+
+    return {
+      ...task,
+      dependsOn,
+      blockedBy: dependsOn, // Alias for clarity
+      blocks,
+    };
+  }
+
+  /**
+   * Get all tasks with their dependencies populated (efficient batch query)
+   */
+  async getTasksWithDependencies(filter?: TaskFilter): Promise<Task[]> {
+    const tasks = await this.getAll(filter);
+
+    if (tasks.length === 0) return [];
+
+    // Batch load all dependencies
+    const taskIds = tasks.map((t) => t.id);
+    const placeholders = taskIds.map(() => "?").join(",");
+
+    // Get all dependencies for these tasks
+    const depsStmt = this.db.prepare(`
+      SELECT td.task_id, td.depends_on_task_id, t.*
+      FROM task_dependencies td
+      INNER JOIN tasks t ON t.id = td.depends_on_task_id
+      WHERE td.task_id IN (${placeholders})
+    `);
+
+    const depRows = depsStmt.all(...taskIds) as Array<TaskRow & { task_id: string }>;
+
+    // Get all dependents for these tasks
+    const dependentsStmt = this.db.prepare(`
+      SELECT td.depends_on_task_id as task_id, td.task_id as dependent_id, t.*
+      FROM task_dependencies td
+      INNER JOIN tasks t ON t.id = td.task_id
+      WHERE td.depends_on_task_id IN (${placeholders})
+    `);
+
+    const dependentRows = dependentsStmt.all(...taskIds) as Array<TaskRow & { task_id: string }>;
+
+    // Group dependencies by task
+    const dependenciesMap = new Map<string, Task[]>();
+    const dependentsMap = new Map<string, Task[]>();
+
+    for (const row of depRows) {
+      const taskId = row.task_id;
+      if (!dependenciesMap.has(taskId)) {
+        dependenciesMap.set(taskId, []);
+      }
+      dependenciesMap.get(taskId)!.push(this.rowToTask(row));
+    }
+
+    for (const row of dependentRows) {
+      const taskId = row.task_id;
+      if (!dependentsMap.has(taskId)) {
+        dependentsMap.set(taskId, []);
+      }
+      dependentsMap.get(taskId)!.push(this.rowToTask(row));
+    }
+
+    // Attach dependencies to tasks
+    return tasks.map((task) => ({
+      ...task,
+      dependsOn: dependenciesMap.get(task.id) || [],
+      blockedBy: dependenciesMap.get(task.id) || [],
+      blocks: dependentsMap.get(task.id) || [],
+    }));
+  }
+
+  /**
+   * Check if adding a dependency would create a circular dependency
+   * Uses BFS to detect cycles
+   */
+  private async wouldCreateCircularDependency(
+    taskId: string,
+    dependsOnTaskId: string
+  ): Promise<boolean> {
+    // If adding this dependency would mean dependsOnTask eventually depends on taskId,
+    // we have a cycle
+    const visited = new Set<string>();
+    const queue: string[] = [dependsOnTaskId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+
+      if (currentId === taskId) {
+        return true; // Found a cycle
+      }
+
+      if (visited.has(currentId)) {
+        continue;
+      }
+
+      visited.add(currentId);
+
+      // Get all tasks that currentId depends on
+      const stmt = this.db.prepare(`
+        SELECT depends_on_task_id FROM task_dependencies
+        WHERE task_id = ?
+      `);
+
+      const deps = stmt.all(currentId) as Array<{ depends_on_task_id: string }>;
+
+      for (const dep of deps) {
+        queue.push(dep.depends_on_task_id);
+      }
     }
 
     return false;
