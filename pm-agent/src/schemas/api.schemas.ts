@@ -19,6 +19,11 @@ export const CreateProjectSchema = z.object({
   phase: z.enum(["idea", "planning", "mvp", "beta", "launch", "growth", "maintenance"]).optional().default("planning"),
   goals: z.array(z.string()).optional().default([]),
   focusAreas: z.array(z.enum(["ci-cd", "issues", "prs", "security", "dependencies", "performance"])).optional().default([]),
+  // Project-level health check and alert settings
+  healthCheckIntervalHours: z.number().int().positive().optional(),
+  alertThresholdHealthScore: z.number().int().min(0).max(100).optional(),
+  alertThresholdOpenIssues: z.number().int().min(0).optional(),
+  alertOnCiFailure: z.boolean().optional(),
 });
 
 export const UpdatePlanMarkdownSchema = z.object({

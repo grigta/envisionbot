@@ -515,6 +515,64 @@ ${projectsContext}
   return report;
 }
 
+/**
+ * Check alert thresholds for projects and send notifications
+ * This should be called after health checks complete
+ */
+export async function checkAlertThresholds(report: AnalysisReport): Promise<void> {
+  if (!report.projectReports || report.projectReports.length === 0) {
+    return;
+  }
+
+  const { sendNotification } = await import("./approval/telegram-bot.js");
+  const projects = stateStore.getProjects();
+
+  for (const projectReport of report.projectReports) {
+    const project = projects.find((p) => p.id === projectReport.projectId);
+    if (!project) continue;
+
+    const alerts: string[] = [];
+
+    // Check health score threshold
+    if (
+      project.alertThresholdHealthScore !== undefined &&
+      projectReport.healthScore < project.alertThresholdHealthScore
+    ) {
+      alerts.push(
+        `⚠️ Health score is ${projectReport.healthScore}, below threshold of ${project.alertThresholdHealthScore}`
+      );
+    }
+
+    // Check open issues threshold
+    if (
+      project.alertThresholdOpenIssues !== undefined &&
+      projectReport.openIssues > project.alertThresholdOpenIssues
+    ) {
+      alerts.push(
+        `📋 Open issues: ${projectReport.openIssues}, exceeds threshold of ${project.alertThresholdOpenIssues}`
+      );
+    }
+
+    // Check CI failure (if enabled, which is the default)
+    if (
+      project.alertOnCiFailure !== false &&
+      projectReport.ciStatus === "failing"
+    ) {
+      alerts.push(`❌ CI/CD is failing`);
+    }
+
+    // Send notification if any alerts triggered
+    if (alerts.length > 0) {
+      await sendNotification(
+        `🚨 *Alert: ${project.name}*\n\n${alerts.join("\n")}\n\n` +
+          `Health Score: ${projectReport.healthScore}\n` +
+          `Open Issues: ${projectReport.openIssues}\n` +
+          `CI Status: ${projectReport.ciStatus}`
+      );
+    }
+  }
+}
+
 // Deep analysis prompt - uses Claude Code CLI with streaming for real-time updates
 export async function runDeepAnalysis(): Promise<AnalysisReport | undefined> {
   const projects = stateStore.getProjects();

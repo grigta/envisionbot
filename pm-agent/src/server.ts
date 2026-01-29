@@ -394,7 +394,18 @@ export async function startServer(): Promise<void> {
     "/api/projects",
     { preHandler: validateBody(schemas.CreateProjectSchema) },
     async (request) => {
-      const { id, name, repo, phase = "planning", goals = [], focusAreas = [] } = request.body;
+      const {
+        id,
+        name,
+        repo,
+        phase = "planning",
+        goals = [],
+        focusAreas = [],
+        healthCheckIntervalHours,
+        alertThresholdHealthScore,
+        alertThresholdOpenIssues,
+        alertOnCiFailure,
+      } = request.body;
       const project = {
         id,
         name,
@@ -405,13 +416,30 @@ export async function startServer(): Promise<void> {
         focusAreas: focusAreas as ("ci-cd" | "issues" | "prs")[],
         createdAt: Date.now(),
         updatedAt: Date.now(),
+        ...(healthCheckIntervalHours !== undefined && { healthCheckIntervalHours }),
+        ...(alertThresholdHealthScore !== undefined && { alertThresholdHealthScore }),
+        ...(alertThresholdOpenIssues !== undefined && { alertThresholdOpenIssues }),
+        ...(alertOnCiFailure !== undefined && { alertOnCiFailure }),
       };
       stateStore.addProject(project);
       return project;
     }
   );
 
-  fastify.put<{ Params: { id: string }; Body: { name?: string; repo?: string; phase?: string; goals?: string[]; focusAreas?: string[] } }>(
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      repo?: string;
+      phase?: string;
+      goals?: string[];
+      focusAreas?: string[];
+      healthCheckIntervalHours?: number;
+      alertThresholdHealthScore?: number;
+      alertThresholdOpenIssues?: number;
+      alertOnCiFailure?: boolean;
+    };
+  }>(
     "/api/projects/:id",
     async (request, reply) => {
       const project = stateStore.getProject(request.params.id);
@@ -419,7 +447,17 @@ export async function startServer(): Promise<void> {
         return reply.status(404).send({ error: "Project not found" });
       }
 
-      const { name, repo, phase, goals, focusAreas } = request.body;
+      const {
+        name,
+        repo,
+        phase,
+        goals,
+        focusAreas,
+        healthCheckIntervalHours,
+        alertThresholdHealthScore,
+        alertThresholdOpenIssues,
+        alertOnCiFailure,
+      } = request.body;
       const updatedProject = {
         ...project,
         ...(name !== undefined && { name }),
@@ -427,6 +465,10 @@ export async function startServer(): Promise<void> {
         ...(phase !== undefined && { phase }),
         ...(goals !== undefined && { goals }),
         ...(focusAreas !== undefined && { focusAreas }),
+        ...(healthCheckIntervalHours !== undefined && { healthCheckIntervalHours }),
+        ...(alertThresholdHealthScore !== undefined && { alertThresholdHealthScore }),
+        ...(alertThresholdOpenIssues !== undefined && { alertThresholdOpenIssues }),
+        ...(alertOnCiFailure !== undefined && { alertOnCiFailure }),
         updatedAt: Date.now(),
       };
 

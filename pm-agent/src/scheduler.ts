@@ -1,5 +1,5 @@
 import schedule from "node-schedule";
-import { runHealthCheck, runDeepAnalysis } from "./agent.js";
+import { runHealthCheck, runDeepAnalysis, checkAlertThresholds } from "./agent.js";
 import { sendNotification } from "./approval/telegram-bot.js";
 import { stateStore } from "./state/store.js";
 import { broadcast } from "./server.js";
@@ -76,13 +76,19 @@ export function startScheduler(): void {
     console.log("🔍 Running scheduled health check...");
     try {
       const report = await runHealthCheck();
-      if (report && report.findings.some((f) => f.severity === "critical" || f.severity === "error")) {
-        await sendNotification(
-          `🚨 *Health Check Alert*\n\n` +
-            `Found ${report.findings.filter((f) => f.severity === "critical").length} critical and ` +
-            `${report.findings.filter((f) => f.severity === "error").length} error findings.\n\n` +
-            `Summary: ${report.summary.slice(0, 200)}...`
-        );
+      if (report) {
+        // Check alert thresholds for each project
+        await checkAlertThresholds(report);
+
+        // Send general health check alert if critical/error findings
+        if (report.findings.some((f) => f.severity === "critical" || f.severity === "error")) {
+          await sendNotification(
+            `🚨 *Health Check Alert*\n\n` +
+              `Found ${report.findings.filter((f) => f.severity === "critical").length} critical and ` +
+              `${report.findings.filter((f) => f.severity === "error").length} error findings.\n\n` +
+              `Summary: ${report.summary.slice(0, 200)}...`
+          );
+        }
       }
       console.log("✅ Health check completed");
     } catch (error) {
