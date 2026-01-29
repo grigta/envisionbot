@@ -19,6 +19,7 @@ import { createAuthHook, signToken, decodeToken } from "./auth/index.js";
 import { getAuthConfig } from "./auth.js";
 import type { AnalysisStatus, ProjectPlan, KanbanStatus } from "./types.js";
 import type { CrawlerServiceAuthConfig } from "./services/crawler.service.js";
+import { ReportExportService } from "./services/report-export.service.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
@@ -673,6 +674,51 @@ export async function startServer(): Promise<void> {
     }
     return { success: true };
   });
+
+  // Report export endpoints
+  fastify.get<{ Params: { id: string } }>(
+    "/api/reports/:id/export/markdown",
+    async (request, reply) => {
+      const report = stateStore.getReport(request.params.id);
+      if (!report) {
+        return reply.status(404).send({ error: "Report not found" });
+      }
+
+      try {
+        const markdown = await ReportExportService.exportToMarkdown(report);
+        reply.header("Content-Type", "text/markdown");
+        reply.header("Content-Disposition", `attachment; filename="report-${report.id}.md"`);
+        return markdown;
+      } catch (error) {
+        return reply.status(500).send({
+          error: "Failed to export report to markdown",
+          details: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  );
+
+  fastify.get<{ Params: { id: string } }>(
+    "/api/reports/:id/export/pdf",
+    async (request, reply) => {
+      const report = stateStore.getReport(request.params.id);
+      if (!report) {
+        return reply.status(404).send({ error: "Report not found" });
+      }
+
+      try {
+        const pdfBuffer = await ReportExportService.exportToPDF(report);
+        reply.header("Content-Type", "application/pdf");
+        reply.header("Content-Disposition", `attachment; filename="report-${report.id}.pdf"`);
+        return reply.send(pdfBuffer);
+      } catch (error) {
+        return reply.status(500).send({
+          error: "Failed to export report to PDF",
+          details: error instanceof Error ? error.message : "Unknown error",
+        });
+      }
+    }
+  );
 
   // Agent control
   fastify.post<{ Body: { prompt: string } }>("/api/agent/run", async (request) => {
