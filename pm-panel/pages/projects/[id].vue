@@ -61,6 +61,28 @@
         </div>
       </div>
 
+      <!-- Project Analysis Section -->
+      <div class="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Analyze Button -->
+        <div class="notion-card">
+          <h3 class="text-sm font-medium text-gray-500 mb-4">Code Analysis</h3>
+          <ProjectAnalyzeButton
+            :project-id="project.id"
+            @analysis-complete="onAnalysisComplete"
+            @plan-updated="onPlanUpdated"
+          />
+        </div>
+
+        <!-- Plan Viewer (spans 2 columns) -->
+        <div class="lg:col-span-2">
+          <PlanViewer
+            ref="planViewerRef"
+            :project-id="project.id"
+            @plan-changed="fetchProject"
+          />
+        </div>
+      </div>
+
       <!-- Main Content Grid -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Goals -->
@@ -219,6 +241,23 @@ const tasks = ref<Task[]>([]);
 const metrics = ref<{ openIssues?: number; openPRs?: number; velocity?: number; healthScore?: number } | null>(null);
 const loading = ref(true);
 const analysisLoading = ref(false);
+
+// Plan viewer ref
+const planViewerRef = ref<{ refresh: () => void } | null>(null);
+
+// Event handlers for analysis
+function onAnalysisComplete(data: { tasksCreated: number }) {
+  toast.add({
+    title: "Analysis Complete",
+    description: `Created ${data.tasksCreated} new tasks`,
+    color: "green",
+  });
+  fetchProject();
+}
+
+function onPlanUpdated() {
+  planViewerRef.value?.refresh();
+}
 
 async function fetchProject() {
   loading.value = true;

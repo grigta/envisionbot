@@ -1,5 +1,6 @@
 import { execa, type ResultPromise } from "execa";
 import { spawn } from "child_process";
+import type { Project, CodebaseAnalysisResult } from "../types.js";
 
 export interface ClaudeCodeResult {
   success: boolean;
@@ -620,4 +621,345 @@ Return ONLY the JSON object, no explanation.`;
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
+}
+
+/**
+ * Analyze a project's codebase and generate a development plan
+ * Uses Claude Code to understand the current state and suggest improvements
+ * Supports context from previous plan versions for continuity
+ */
+export async function analyzeProjectCodebase(
+  repoPath: string,
+  project: { name: string; repo: string; phase: string },
+  onStep?: StreamCallback,
+  previousPlan?: { markdown: string; version: number; analysisSummary?: string }
+): Promise<{
+  success: boolean;
+  planMarkdown?: string;
+  analysis?: CodebaseAnalysisResult;
+  error?: string;
+}> {
+  // Build context from previous plan if exists
+  const previousPlanContext = previousPlan
+    ? `
+ПРЕДЫДУЩИЙ ПЛАН (версия ${previousPlan.version}):
+${previousPlan.markdown}
+
+${previousPlan.analysisSummary ? `Предыдущая сводка: ${previousPlan.analysisSummary}` : ""}
+
+ИНСТРУКЦИИ ПО ОБНОВЛЕНИЮ:
+- Сохрани контекст и преемственность с предыдущим планом
+- Отметь задачи как выполненные [x], если они завершены в коде
+- Добавь новые задачи на основе изменений в кодовой базе
+- Обнови статус задач "В работе" на основе текущего состояния
+- Выдели ключевые изменения с прошлой версии
+- Сохрани структуру и формат предыдущего плана
+
+`
+    : "";
+
+  const prompt = `Ты анализируешь кодовую базу для ${previousPlan ? "обновления" : "создания"} плана разработки.
+${previousPlanContext}
+
+Проект: ${project.name}
+Репозиторий: ${project.repo}
+Текущая фаза: ${project.phase}
+
+ВАЖНО: Ты находишься в директории проекта. Тщательно изучи код перед созданием плана.
+
+Твои задачи:
+1. Изучить структуру проекта (файлы, директории)
+2. Определить технологический стек
+3. Понять, какие фичи уже реализованы
+4. Найти, что не доделано или можно улучшить
+5. Выявить технический долг и проблемы с качеством кода
+6. Определить риски и блокеры
+7. Предложить следующие шаги разработки с приоритетами
+
+После анализа выведи план разработки СТРОГО в следующем markdown формате:
+
+---
+project_id: "${project.name}"
+generated_at: "${new Date().toISOString()}"
+updated_at: "${new Date().toISOString()}"
+version: 1
+status: "active"
+---
+
+# План разработки: ${project.name}
+
+## Обзор
+[Краткое описание проекта и его текущего состояния в 2-3 предложениях]
+
+## Технологии
+- [Список технологий, фреймворков и инструментов]
+
+## Текущее состояние
+
+### Реализовано
+- [x] Фича 1 — краткое описание
+- [x] Фича 2 — краткое описание
+
+### В работе
+- [ ] Фича — описание
+
+## Дорожная карта
+
+### Фаза 1: MVP (Критично)
+- [ ] Задача 1 — описание — приоритет: критический
+- [ ] Задача 2 — описание — приоритет: высокий
+
+### Фаза 2: Улучшения (Важно)
+- [ ] Задача 3 — описание — приоритет: средний
+
+### Фаза 3: Полировка (Желательно)
+- [ ] Задача 4 — описание — приоритет: низкий
+
+## Технический долг
+- Проблема 1: описание и рекомендация по исправлению
+- Проблема 2: описание и рекомендация по исправлению
+
+## Риски и блокеры
+- Риск 1: описание и стратегия митигации
+
+## Заметки
+[Дополнительные наблюдения и рекомендации]
+
+ПРАВИЛА:
+1. Будь конкретным в описании задач
+2. Каждая задача должна быть выполнимой AI-агентом
+3. Приоритизируй задачи по влиянию на проект
+4. План должен быть реалистичным
+5. Выводи ТОЛЬКО markdown план, без лишнего текста до или после
+6. Отвечай ТОЛЬКО на русском языке`;
+
+  try {
+    let planMarkdown = "";
+
+    if (onStep) {
+      // Streaming mode
+      const result = await runClaudeCodeStreaming(repoPath, prompt, onStep, {
+        timeout: 600000, // 10 minutes for analysis
+        allowEdits: false, // Read-only analysis
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.output };
+      }
+
+      planMarkdown = result.output;
+    } else {
+      // Non-streaming mode
+      const result = await runClaudeCode(repoPath, prompt, {
+        timeout: 600000,
+        allowEdits: false,
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.output };
+      }
+
+      planMarkdown = result.output;
+    }
+
+    // Clean up the output - extract just the markdown plan
+    const cleanedMarkdown = extractPlanMarkdown(planMarkdown);
+
+    // Parse the analysis from the markdown
+    const analysis = parseAnalysisFromMarkdown(cleanedMarkdown);
+
+    return {
+      success: true,
+      planMarkdown: cleanedMarkdown,
+      analysis,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Extract the plan markdown from Claude's output
+ * Handles duplicates and cleans up extra content
+ */
+function extractPlanMarkdown(output: string): string {
+  // Try to find the YAML frontmatter start
+  const frontmatterMatch = output.match(/---\s*\nproject_id:/);
+  if (frontmatterMatch && frontmatterMatch.index !== undefined) {
+    let planContent = output.slice(frontmatterMatch.index);
+
+    // Find where the plan ends (next frontmatter or specific markers)
+    // Look for a second occurrence of the frontmatter (duplicate)
+    const secondFrontmatter = planContent.indexOf("---\nproject_id:", 10);
+    if (secondFrontmatter > 0) {
+      planContent = planContent.slice(0, secondFrontmatter);
+    }
+
+    // Also check for "Now I have" or similar phrases that indicate end of plan
+    const endMarkers = [
+      "Now I have",
+      "Теперь у меня",
+      "Let me generate",
+      "Давай сгенерирую",
+      "\n\n\n\n", // Multiple blank lines
+    ];
+
+    for (const marker of endMarkers) {
+      const markerIndex = planContent.indexOf(marker);
+      if (markerIndex > 100) { // Make sure we have some content first
+        planContent = planContent.slice(0, markerIndex);
+        break;
+      }
+    }
+
+    return planContent.trim();
+  }
+
+  // If no frontmatter, try to find the # План разработки or # Project Plan header
+  const headerMatch = output.match(/# (План разработки|Project Plan):/);
+  if (headerMatch && headerMatch.index !== undefined) {
+    let planContent = output.slice(headerMatch.index);
+
+    // Check for duplicate headers
+    const secondHeader = planContent.indexOf("# План разработки:", 10);
+    const secondHeaderEn = planContent.indexOf("# Project Plan:", 10);
+    const cutIndex = Math.min(
+      secondHeader > 0 ? secondHeader : Infinity,
+      secondHeaderEn > 0 ? secondHeaderEn : Infinity
+    );
+
+    if (cutIndex < Infinity) {
+      planContent = planContent.slice(0, cutIndex);
+    }
+
+    // Add default frontmatter
+    return `---
+project_id: "unknown"
+generated_at: "${new Date().toISOString()}"
+updated_at: "${new Date().toISOString()}"
+version: 1
+status: "active"
+---
+
+${planContent.trim()}`;
+  }
+
+  // Return as-is if we can't find a recognizable format
+  return output.trim();
+}
+
+/**
+ * Parse analysis results from the plan markdown
+ */
+function parseAnalysisFromMarkdown(markdown: string): CodebaseAnalysisResult {
+  const implemented: string[] = [];
+  const missing: string[] = [];
+  const technicalDebt: string[] = [];
+  const risks: string[] = [];
+  const suggestedTasks: CodebaseAnalysisResult["suggestedTasks"] = [];
+  let notes = "";
+
+  // Parse implemented features (lines starting with - [x])
+  const implementedMatches = markdown.matchAll(/- \[x\] (.+)/gi);
+  for (const match of implementedMatches) {
+    implemented.push(match[1].trim());
+  }
+
+  // Parse missing/todo features (lines starting with - [ ])
+  const todoMatches = markdown.matchAll(/- \[ \] (.+)/gi);
+  for (const match of todoMatches) {
+    const line = match[1].trim();
+    missing.push(line);
+
+    // Extract task info (supports both English and Russian)
+    const priorityMatch = line.match(/(?:priority|приоритет):\s*(critical|high|medium|low|критический|высокий|средний|низкий)/i);
+    let priorityStr = priorityMatch?.[1]?.toLowerCase() || "medium";
+    // Map Russian priorities to English
+    const priorityMap: Record<string, string> = {
+      "критический": "critical",
+      "высокий": "high",
+      "средний": "medium",
+      "низкий": "low",
+    };
+    priorityStr = priorityMap[priorityStr] || priorityStr;
+    const priority = priorityStr as "critical" | "high" | "medium" | "low";
+
+    // Determine task type based on content (supports Russian keywords)
+    let type: "development" | "review" | "planning" | "maintenance" | "investigation" | "documentation" | "security" | "improvement" = "development";
+    const lowerLine = line.toLowerCase();
+    if (lowerLine.includes("test") || lowerLine.includes("review") || lowerLine.includes("тест")) type = "review";
+    else if (lowerLine.includes("doc") || lowerLine.includes("readme") || lowerLine.includes("документ")) type = "documentation";
+    else if (lowerLine.includes("security") || lowerLine.includes("auth") || lowerLine.includes("безопасн") || lowerLine.includes("аутентиф")) type = "security";
+    else if (lowerLine.includes("refactor") || lowerLine.includes("improve") || lowerLine.includes("рефакт") || lowerLine.includes("улучш")) type = "improvement";
+    else if (lowerLine.includes("fix") || lowerLine.includes("bug") || lowerLine.includes("исправ") || lowerLine.includes("баг")) type = "maintenance";
+
+    // Extract phase from section (supports both English and Russian headers)
+    let phase = "MVP";
+    const phase2Markers = ["### Phase 2", "### Фаза 2", "### Улучшения"];
+    const phase3Markers = ["### Phase 3", "### Фаза 3", "### Полировка"];
+
+    for (const marker of phase2Markers) {
+      if (markdown.includes(marker) && markdown.indexOf(line) > markdown.indexOf(marker)) {
+        phase = "Enhancement";
+        break;
+      }
+    }
+    for (const marker of phase3Markers) {
+      if (markdown.includes(marker) && markdown.indexOf(line) > markdown.indexOf(marker)) {
+        phase = "Polish";
+        break;
+      }
+    }
+
+    suggestedTasks.push({
+      title: line
+        .replace(/\s*[-—]\s*(?:priority|приоритет):\s*\w+/gi, "")
+        .replace(/\s*[-—]\s*$/g, "")
+        .trim(),
+      description: line,
+      priority,
+      type,
+      phase,
+    });
+  }
+
+  // Parse technical debt section (supports Russian)
+  const debtSection = markdown.match(/## (?:Technical Debt|Технический долг)\n([\s\S]*?)(?=\n## |$)/i);
+  if (debtSection) {
+    const debtLines = debtSection[1].match(/- (.+)/g);
+    if (debtLines) {
+      for (const line of debtLines) {
+        technicalDebt.push(line.replace(/^- /, "").trim());
+      }
+    }
+  }
+
+  // Parse risks section (supports Russian)
+  const risksSection = markdown.match(/## (?:Risks & Blockers|Риски и блокеры)\n([\s\S]*?)(?=\n## |$)/i);
+  if (risksSection) {
+    const riskLines = risksSection[1].match(/- (.+)/g);
+    if (riskLines) {
+      for (const line of riskLines) {
+        risks.push(line.replace(/^- /, "").trim());
+      }
+    }
+  }
+
+  // Parse notes section (supports Russian)
+  const notesSection = markdown.match(/## (?:Notes|Заметки)\n([\s\S]*?)(?=\n## |$)/i);
+  if (notesSection) {
+    notes = notesSection[1].trim();
+  }
+
+  return {
+    implemented,
+    missing,
+    technicalDebt,
+    risks,
+    suggestedTasks,
+    notes,
+  };
 }

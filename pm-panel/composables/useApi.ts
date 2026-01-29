@@ -183,6 +183,31 @@ export function useApi() {
     return fetchApi<Mentionable[]>(`/api/mentions${query ? `?${query}` : ""}`);
   };
 
+  // Project Analysis
+  const startProjectAnalysis = (projectId: string) =>
+    fetchApi<{ status: string; projectId: string }>(`/api/projects/${projectId}/analyze`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  const getAnalysisStatus = (projectId: string) =>
+    fetchApi<AnalysisStatus>(`/api/projects/${projectId}/analyze/status`);
+  const getProjectPlan = (projectId: string) =>
+    fetchApi<ProjectPlan>(`/api/projects/${projectId}/plan`);
+  const updateProjectPlan = (projectId: string, markdown: string) =>
+    fetchApi<ProjectPlan>(`/api/projects/${projectId}/plan`, {
+      method: "PUT",
+      body: JSON.stringify({ markdown }),
+    });
+  const syncTasksFromPlan = (projectId: string) =>
+    fetchApi<{ success: boolean; message: string }>(`/api/projects/${projectId}/sync-tasks`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  const getPlanVersions = (projectId: string) =>
+    fetchApi<PlanVersion[]>(`/api/projects/${projectId}/plan/versions`);
+  const getPlanVersion = (projectId: string, version: number) =>
+    fetchApi<PlanVersion>(`/api/projects/${projectId}/plan/versions/${version}`);
+
   return {
     // Projects
     getProjects,
@@ -229,6 +254,14 @@ export function useApi() {
     // GitHub
     getGitHubRepos,
     getMentionables,
+    // Project Analysis
+    startProjectAnalysis,
+    getAnalysisStatus,
+    getProjectPlan,
+    updateProjectPlan,
+    syncTasksFromPlan,
+    getPlanVersions,
+    getPlanVersion,
   };
 }
 
@@ -395,4 +428,35 @@ export interface Mentionable {
   description: string;
   value: string;
   icon: string;
+}
+
+// Project Analysis types
+export interface AnalysisStatus {
+  projectId: string;
+  status: "idle" | "cloning" | "analyzing" | "generating" | "syncing" | "completed" | "failed";
+  progress: number;
+  currentStep?: string;
+  error?: string;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface ProjectPlan {
+  id: string;
+  projectId: string;
+  markdown: string;
+  version: number;
+  generatedAt: number;
+  updatedAt: number;
+  analysisSummary?: string;
+}
+
+export interface PlanVersion {
+  id: string;
+  planId: string;
+  version: number;
+  markdown: string;
+  analysisSummary?: string;
+  changeSummary?: string;
+  createdAt: number;
 }

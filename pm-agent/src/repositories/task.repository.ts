@@ -74,7 +74,7 @@ export class TaskRepository extends BaseRepository<Task> {
       params.push(filter.kanbanStatus);
     }
 
-    sql += " ORDER BY generated_at DESC";
+    sql += " ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, generated_at DESC";
 
     const stmt = this.db.prepare(sql);
     const rows = stmt.all(...params) as TaskRow[];

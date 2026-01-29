@@ -75,8 +75,8 @@
     <!-- Main content -->
     <main class="flex-1 ml-60">
       <!-- Top bar -->
-      <header class="sticky top-0 z-10 bg-[#191919]/80 backdrop-blur-sm border-b border-[#2d2d2d]">
-        <div class="px-8 py-4 flex items-center justify-between">
+      <header class="sticky top-0 z-10 bg-[#191919]/80 backdrop-blur-sm border-b border-[#2d2d2d] h-[57px]">
+        <div class="px-8 h-full flex items-center justify-between">
           <!-- Breadcrumb -->
           <div class="flex items-center gap-2 text-sm">
             <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">

@@ -17,6 +17,9 @@ interface _GlobalComponents {
   'EmptyState': typeof import("../../components/EmptyState.vue").default
   'GatewayLive': typeof import("../../components/GatewayLive.vue").default
   'LiveFeed': typeof import("../../components/LiveFeed.vue").default
+  'PlanVersionSelector': typeof import("../../components/PlanVersionSelector.vue").default
+  'PlanViewer': typeof import("../../components/PlanViewer.vue").default
+  'ProjectAnalyzeButton': typeof import("../../components/ProjectAnalyzeButton.vue").default
   'SkeletonCard': typeof import("../../components/SkeletonCard.vue").default
   'StatCard': typeof import("../../components/StatCard.vue").default
   'StatusBadge': typeof import("../../components/StatusBadge.vue").default
@@ -105,6 +108,9 @@ interface _GlobalComponents {
   'LazyEmptyState': LazyComponent<typeof import("../../components/EmptyState.vue").default>
   'LazyGatewayLive': LazyComponent<typeof import("../../components/GatewayLive.vue").default>
   'LazyLiveFeed': LazyComponent<typeof import("../../components/LiveFeed.vue").default>
+  'LazyPlanVersionSelector': LazyComponent<typeof import("../../components/PlanVersionSelector.vue").default>
+  'LazyPlanViewer': LazyComponent<typeof import("../../components/PlanViewer.vue").default>
+  'LazyProjectAnalyzeButton': LazyComponent<typeof import("../../components/ProjectAnalyzeButton.vue").default>
   'LazySkeletonCard': LazyComponent<typeof import("../../components/SkeletonCard.vue").default>
   'LazyStatCard': LazyComponent<typeof import("../../components/StatCard.vue").default>
   'LazyStatusBadge': LazyComponent<typeof import("../../components/StatusBadge.vue").default>

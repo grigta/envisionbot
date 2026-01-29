@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS projects (
     goals TEXT NOT NULL DEFAULT '[]',
     focus_areas TEXT NOT NULL DEFAULT '[]',
     created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
+    updated_at INTEGER NOT NULL,
+    local_path TEXT,
+    last_analysis_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_repo ON projects(repo);
@@ -48,7 +50,9 @@ CREATE TABLE IF NOT EXISTS tasks (
     generated_at INTEGER NOT NULL,
     completed_at INTEGER,
     approved_by TEXT CHECK (approved_by IS NULL OR approved_by IN ('telegram', 'web', 'auto')),
-    generated_by TEXT CHECK (generated_by IS NULL OR generated_by IN ('health_check', 'deep_analysis', 'manual', 'chat'))
+    generated_by TEXT CHECK (generated_by IS NULL OR generated_by IN ('health_check', 'deep_analysis', 'manual', 'chat', 'plan_sync')),
+    plan_section_id TEXT,
+    plan_item_index INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
@@ -205,4 +209,50 @@ CREATE TABLE IF NOT EXISTS agent_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
+);
+
+-- ============================================
+-- PROJECT PLANS TABLE (Codebase analysis plans)
+-- ============================================
+CREATE TABLE IF NOT EXISTS project_plans (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL UNIQUE,
+    markdown TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    generated_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    analysis_summary TEXT,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_plans_project ON project_plans(project_id);
+
+-- ============================================
+-- PLAN VERSIONS TABLE (History of plan versions)
+-- ============================================
+CREATE TABLE IF NOT EXISTS plan_versions (
+    id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL REFERENCES project_plans(id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    markdown TEXT NOT NULL,
+    analysis_summary TEXT,
+    change_summary TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_plan_versions_plan ON plan_versions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_plan_versions_version ON plan_versions(plan_id, version DESC);
+
+-- ============================================
+-- ANALYSIS STATUS TABLE (Track running analyses)
+-- ============================================
+CREATE TABLE IF NOT EXISTS analysis_status (
+    project_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'idle' CHECK (status IN ('idle', 'cloning', 'analyzing', 'generating', 'syncing', 'completed', 'failed')),
+    progress INTEGER NOT NULL DEFAULT 0 CHECK (progress >= 0 AND progress <= 100),
+    current_step TEXT,
+    error TEXT,
+    started_at INTEGER,
+    completed_at INTEGER,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );

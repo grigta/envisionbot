@@ -332,7 +332,7 @@ class Store {
       params.push(filter.status);
     }
 
-    sql += " ORDER BY generated_at DESC";
+    sql += " ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, generated_at DESC";
 
     const stmt = this.db.sqlite.prepare(sql);
     const rows = stmt.all(...params) as Array<{
@@ -1050,6 +1050,19 @@ class Store {
       activeIdeasCount,
       lastHealthCheck: this.getLastHealthCheck(),
       lastDeepAnalysis: this.getLastDeepAnalysis(),
+    };
+  }
+
+  // ==========================================
+  // Repository Dependencies (for external services)
+  // ==========================================
+
+  getRepositoryDeps(): RepositoryDeps | null {
+    if (!this.db) return null;
+    return {
+      db: this.db.sqlite,
+      cache: this.db.cache,
+      pubsub: this.db.pubsub,
     };
   }
 

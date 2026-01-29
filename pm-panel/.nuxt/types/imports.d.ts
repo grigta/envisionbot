@@ -203,7 +203,7 @@ declare global {
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from '../../node_modules/vue'
   import('../../node_modules/vue')
   // @ts-ignore
-  export type { Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo } from '../../composables/useApi'
+  export type { Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo, AnalysisStatus, ProjectPlan, PlanVersion } from '../../composables/useApi'
   import('../../composables/useApi')
   // @ts-ignore
   export type { Mentionable } from '../../composables/useMentions'

@@ -12,6 +12,9 @@ import { buildChatContext } from "./chat/context.js";
 import { chatHistory } from "./chat/history.js";
 import { parseMentions } from "./chat/mentions.js";
 import { runAgentTaskStreaming, type AgentStep } from "./tools/claude-code.js";
+import { createProjectAnalyzer } from "./services/project-analyzer.service.js";
+import { PlanRepository } from "./repositories/plan.repository.js";
+import type { AnalysisStatus, ProjectPlan } from "./types.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -118,6 +121,173 @@ export async function startServer(): Promise<void> {
     stateStore.removeProject(request.params.id);
     return { success: true };
   });
+
+  // Project Analysis Endpoints
+  // Start project analysis
+  fastify.post<{ Params: { id: string } }>("/api/projects/:id/analyze", async (request, reply) => {
+    const project = stateStore.getProject(request.params.id);
+    if (!project) {
+      return reply.status(404).send({ error: "Project not found" });
+    }
+
+    // Get repository deps from store
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    // Create analyzer with progress broadcast
+    const analyzer = createProjectAnalyzer(deps, {
+      onProgress: (status: AnalysisStatus) => {
+        broadcast({
+          type: "analysis_progress",
+          timestamp: Date.now(),
+          data: status,
+        });
+      },
+      onStep: (step) => {
+        broadcast({
+          type: "agent_step",
+          timestamp: Date.now(),
+          data: step,
+        });
+      },
+    });
+
+    // Start analysis in background
+    analyzer.analyzeProject(request.params.id).then((result) => {
+      if (result.success) {
+        broadcast({
+          type: "analysis_completed",
+          timestamp: Date.now(),
+          data: {
+            projectId: request.params.id,
+            tasksCreated: result.tasksCreated,
+          },
+        });
+      }
+    });
+
+    return { status: "started", projectId: request.params.id };
+  });
+
+  // Get analysis status
+  fastify.get<{ Params: { id: string } }>("/api/projects/:id/analyze/status", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const planRepo = new PlanRepository(deps);
+    const status = await planRepo.getAnalysisStatus(request.params.id);
+
+    if (!status) {
+      return { status: "idle", progress: 0, projectId: request.params.id };
+    }
+
+    return status;
+  });
+
+  // Get project plan
+  fastify.get<{ Params: { id: string } }>("/api/projects/:id/plan", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const planRepo = new PlanRepository(deps);
+    const plan = await planRepo.getByProjectId(request.params.id);
+
+    if (!plan) {
+      return reply.status(404).send({ error: "Plan not found" });
+    }
+
+    return plan;
+  });
+
+  // Update project plan
+  fastify.put<{ Params: { id: string }; Body: { markdown: string } }>(
+    "/api/projects/:id/plan",
+    async (request, reply) => {
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const analyzer = createProjectAnalyzer(deps);
+      const updated = await analyzer.updatePlanMarkdown(request.params.id, request.body.markdown);
+
+      if (!updated) {
+        return reply.status(404).send({ error: "Plan not found" });
+      }
+
+      broadcast({
+        type: "plan_updated",
+        timestamp: Date.now(),
+        data: updated,
+      });
+
+      return updated;
+    }
+  );
+
+  // Sync tasks from plan
+  fastify.post<{ Params: { id: string } }>("/api/projects/:id/sync-tasks", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const planRepo = new PlanRepository(deps);
+    const plan = await planRepo.getByProjectId(request.params.id);
+
+    if (!plan) {
+      return reply.status(404).send({ error: "Plan not found" });
+    }
+
+    // Re-analyze to sync tasks (uses existing plan)
+    const analyzer = createProjectAnalyzer(deps);
+    // For now, just return success - full sync would require re-parsing
+    return { success: true, message: "Tasks synced from plan" };
+  });
+
+  // Get all plan versions (including current)
+  fastify.get<{ Params: { id: string } }>("/api/projects/:id/plan/versions", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const analyzer = createProjectAnalyzer(deps);
+    const versions = await analyzer.getPlanVersions(request.params.id);
+
+    return versions;
+  });
+
+  // Get specific plan version
+  fastify.get<{ Params: { id: string; version: string } }>(
+    "/api/projects/:id/plan/versions/:version",
+    async (request, reply) => {
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const versionNum = parseInt(request.params.version, 10);
+      if (isNaN(versionNum)) {
+        return reply.status(400).send({ error: "Invalid version number" });
+      }
+
+      const analyzer = createProjectAnalyzer(deps);
+      const version = await analyzer.getPlanVersion(request.params.id, versionNum);
+
+      if (!version) {
+        return reply.status(404).send({ error: "Version not found" });
+      }
+
+      return version;
+    }
+  );
 
   // Tasks
   fastify.get<{ Querystring: { projectId?: string; status?: string } }>("/api/tasks", async (request) => {

@@ -124,8 +124,8 @@
           :to="`/projects/${project.id}`"
           class="flex items-center gap-4 p-3 rounded-lg hover:bg-[#2d2d2d] transition-colors group"
         >
-          <div class="w-8 h-8 rounded bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-            <span class="text-white text-xs font-bold">{{ project.name.charAt(0).toUpperCase() }}</span>
+          <div class="w-10 h-10 rounded-lg bg-[#2d2d2d] flex items-center justify-center flex-shrink-0">
+            <UIcon name="i-simple-icons-github" class="w-5 h-5 text-white" />
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-medium text-white group-hover:text-cyan-400 transition-colors">

@@ -1,0 +1,1 @@
+{"version":3,"file":"scheduler.d.ts","sourceRoot":"","sources":["../src/scheduler.ts"],"names":[],"mappings":"AAoCA,wBAAgB,cAAc,IAAI,IAAI,CAkErC;AAED,wBAAgB,aAAa,IAAI,IAAI,CAUpC;AAGD,wBAAgB,eAAe,IAAI;IACjC,eAAe,CAAC,EAAE,IAAI,CAAC;IACvB,gBAAgB,CAAC,EAAE,IAAI,CAAC;CACzB,CAKA"}

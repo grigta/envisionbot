@@ -30,7 +30,7 @@ export { requestIdleCallback, cancelIdleCallback } from '#app/compat/idle-callba
 export { setInterval } from '#app/compat/interval';
 export { definePageMeta } from '../node_modules/nuxt/dist/pages/runtime/composables';
 export { defineLazyHydrationComponent } from '#app/composables/lazy-hydration';
-export { useApi, Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo } from '../composables/useApi';
+export { useApi, Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo, AnalysisStatus, ProjectPlan, PlanVersion } from '../composables/useApi';
 export { useMentions, Mentionable } from '../composables/useMentions';
 export { useWebSocket, WSEvent } from '../composables/useWebSocket';
 export { defineShortcuts } from '../node_modules/@nuxt/ui/dist/runtime/composables/defineShortcuts';

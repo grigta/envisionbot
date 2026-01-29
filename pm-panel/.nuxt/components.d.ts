@@ -17,6 +17,9 @@ type LazyComponent<T> = DefineComponent<HydrationStrategies, {}, {}, {}, {}, {},
 export const EmptyState: typeof import("../components/EmptyState.vue").default
 export const GatewayLive: typeof import("../components/GatewayLive.vue").default
 export const LiveFeed: typeof import("../components/LiveFeed.vue").default
+export const PlanVersionSelector: typeof import("../components/PlanVersionSelector.vue").default
+export const PlanViewer: typeof import("../components/PlanViewer.vue").default
+export const ProjectAnalyzeButton: typeof import("../components/ProjectAnalyzeButton.vue").default
 export const SkeletonCard: typeof import("../components/SkeletonCard.vue").default
 export const StatCard: typeof import("../components/StatCard.vue").default
 export const StatusBadge: typeof import("../components/StatusBadge.vue").default
@@ -105,6 +108,9 @@ export const NuxtIsland: typeof import("../node_modules/nuxt/dist/app/components
 export const LazyEmptyState: LazyComponent<typeof import("../components/EmptyState.vue").default>
 export const LazyGatewayLive: LazyComponent<typeof import("../components/GatewayLive.vue").default>
 export const LazyLiveFeed: LazyComponent<typeof import("../components/LiveFeed.vue").default>
+export const LazyPlanVersionSelector: LazyComponent<typeof import("../components/PlanVersionSelector.vue").default>
+export const LazyPlanViewer: LazyComponent<typeof import("../components/PlanViewer.vue").default>
+export const LazyProjectAnalyzeButton: LazyComponent<typeof import("../components/ProjectAnalyzeButton.vue").default>
 export const LazySkeletonCard: LazyComponent<typeof import("../components/SkeletonCard.vue").default>
 export const LazyStatCard: LazyComponent<typeof import("../components/StatCard.vue").default>
 export const LazyStatusBadge: LazyComponent<typeof import("../components/StatusBadge.vue").default>
