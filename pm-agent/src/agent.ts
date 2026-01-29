@@ -17,6 +17,7 @@ import { stateStore } from "./state/store.js";
 import { approvalQueue } from "./approval/queue.js";
 import { broadcast } from "./server.js";
 import { getAnthropicClientOptions } from "./auth.js";
+import { withRetry } from "./utils/retry.js";
 
 // Initialize client with auto-detected auth
 // Supports: ANTHROPIC_API_KEY env, CLAUDE_CODE_OAUTH_TOKEN env, or Claude Code keychain (subscription)
@@ -214,13 +215,28 @@ Analyze the projects and provide actionable insights. For any actions that modif
   // Agent loop
   let continueLoop = true;
   while (continueLoop) {
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      tools: tools as Anthropic.Tool[],
-      messages: messages as Anthropic.MessageParam[],
-    });
+    // Wrap API call in retry logic with exponential backoff
+    const response = await withRetry(
+      async () => await client.messages.create({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        tools: tools as Anthropic.Tool[],
+        messages: messages as Anthropic.MessageParam[],
+      }),
+      {
+        maxRetries: 3,
+        initialDelay: 1000,
+        onRetry: (attempt, error, delay) => {
+          console.log(`[PMAgent] Retry attempt ${attempt} after ${delay}ms due to error:`, error);
+          broadcast({
+            type: "agent_log",
+            timestamp: Date.now(),
+            data: { text: `Retrying API call (attempt ${attempt}) after ${delay}ms...` },
+          });
+        },
+      }
+    );
 
     // Process response
     const assistantContent: Anthropic.ContentBlock[] = [];
