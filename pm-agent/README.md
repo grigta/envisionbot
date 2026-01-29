@@ -33,6 +33,28 @@ pm-panel/          # Frontend (Nuxt 3 + Vue)
 
 ## Установка
 
+### Docker (Рекомендуется для продакшена)
+
+Для быстрого деплоя используйте Docker Compose:
+
+```bash
+# Скопировать пример конфигурации
+cp .env.docker.example .env
+
+# Заполнить .env необходимыми переменными
+# Сгенерировать JWT_SECRET: openssl rand -base64 32
+
+# Запустить сервисы
+docker-compose up -d
+
+# Создать access code для веб-панели
+docker-compose exec pm-agent npm run codes:create "Admin" admin
+```
+
+Подробная документация: [DOCKER.md](../DOCKER.md)
+
+### Локальная установка
+
 ### 1. Настройка агента
 
 ```bash
