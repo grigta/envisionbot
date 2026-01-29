@@ -77,6 +77,11 @@ export function useApi() {
       method: "POST",
       body: JSON.stringify(data),
     });
+  const updateProject = (id: string, data: Partial<Project>) =>
+    fetchApi<Project>(`/api/projects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   const deleteProject = (id: string) =>
     fetchApi<{ success: boolean }>(`/api/projects/${id}`, { method: "DELETE" });
 
@@ -414,6 +419,7 @@ export function useApi() {
     getProjects,
     getProject,
     createProject,
+    updateProject,
     deleteProject,
     // Tasks
     getTasks,

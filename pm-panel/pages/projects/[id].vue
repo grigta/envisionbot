@@ -191,6 +191,10 @@
           Delete Project
         </button>
         <div class="flex items-center gap-2">
+          <button @click="showEditModal = true" class="btn-secondary">
+            <UIcon name="i-heroicons-pencil" class="w-4 h-4" />
+            Edit Project
+          </button>
           <button @click="runAnalysis" :disabled="analysisLoading" class="btn-secondary">
             <UIcon
               :name="analysisLoading ? 'i-heroicons-arrow-path' : 'i-heroicons-chart-bar'"
@@ -223,6 +227,89 @@
         </NuxtLink>
       </EmptyState>
     </template>
+
+    <!-- Edit Project Modal -->
+    <UModal v-model="showEditModal">
+      <div class="p-6 space-y-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-white">Edit Project</h3>
+          <button @click="showEditModal = false" class="text-gray-500 hover:text-white transition-colors">
+            <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1.5">Name</label>
+            <input
+              v-model="editForm.name"
+              type="text"
+              placeholder="Project name"
+              class="input-bordered w-full"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1.5">Repository</label>
+            <input
+              v-model="editForm.repo"
+              type="text"
+              placeholder="owner/repo"
+              class="input-bordered w-full"
+              disabled
+            />
+            <p class="text-xs text-gray-500 mt-1">Repository cannot be changed after creation</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1.5">Phase</label>
+            <select v-model="editForm.phase" class="input-bordered w-full">
+              <option v-for="phase in phaseOptions" :key="phase.value" :value="phase.value">
+                {{ phase.label }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-1.5">Goals (one per line)</label>
+            <textarea
+              v-model="editGoalsText"
+              rows="3"
+              placeholder="Launch MVP by Q2&#10;Get 100 users"
+              class="input-bordered w-full resize-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-400 mb-2">Focus Areas</label>
+            <div class="flex flex-wrap gap-2">
+              <label
+                v-for="area in focusAreaOptions"
+                :key="area.value"
+                class="flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
+                :class="editForm.focusAreas.includes(area.value) ? 'bg-cyan-500/20 text-cyan-400' : 'bg-[#2d2d2d] text-gray-400 hover:bg-[#363636]'"
+              >
+                <input
+                  type="checkbox"
+                  :value="area.value"
+                  v-model="editForm.focusAreas"
+                  class="sr-only"
+                />
+                <span class="text-sm">{{ area.label }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-[#2d2d2d]">
+          <button @click="showEditModal = false" class="btn btn-secondary">Cancel</button>
+          <button @click="saveProjectEdit" :disabled="updating" class="btn btn-primary">
+            <UIcon v-if="updating" name="i-heroicons-arrow-path" class="w-4 h-4 animate-spin" />
+            <template v-else>Save Changes</template>
+          </button>
+        </div>
+      </div>
+    </UModal>
   </div>
 </template>
 
@@ -241,6 +328,35 @@ const tasks = ref<Task[]>([]);
 const metrics = ref<{ openIssues?: number; openPRs?: number; velocity?: number; healthScore?: number } | null>(null);
 const loading = ref(true);
 const analysisLoading = ref(false);
+const showEditModal = ref(false);
+const updating = ref(false);
+const editGoalsText = ref("");
+
+const editForm = ref({
+  name: "",
+  repo: "",
+  phase: "",
+  focusAreas: [] as string[],
+});
+
+const phaseOptions = [
+  { label: "Idea", value: "idea" },
+  { label: "Planning", value: "planning" },
+  { label: "MVP", value: "mvp" },
+  { label: "Beta", value: "beta" },
+  { label: "Launch", value: "launch" },
+  { label: "Growth", value: "growth" },
+  { label: "Maintenance", value: "maintenance" },
+];
+
+const focusAreaOptions = [
+  { label: "CI/CD", value: "ci-cd" },
+  { label: "Issues", value: "issues" },
+  { label: "Pull Requests", value: "prs" },
+  { label: "Security", value: "security" },
+  { label: "Dependencies", value: "dependencies" },
+  { label: "Performance", value: "performance" },
+];
 
 // Plan viewer ref
 const planViewerRef = ref<{ refresh: () => void } | null>(null);
@@ -309,6 +425,55 @@ async function deleteProject() {
     toast.add({ title: "Failed to delete project", color: "red" });
   }
 }
+
+async function saveProjectEdit() {
+  if (!project.value) return;
+
+  updating.value = true;
+  try {
+    const goals = editGoalsText.value
+      .split("\n")
+      .map((g) => g.trim())
+      .filter((g) => g.length > 0);
+
+    await api.updateProject(projectId, {
+      name: editForm.value.name,
+      phase: editForm.value.phase,
+      goals,
+      focusAreas: editForm.value.focusAreas,
+    });
+
+    toast.add({
+      title: "Success",
+      description: "Project updated successfully",
+      color: "green",
+    });
+
+    showEditModal.value = false;
+    await fetchProject();
+  } catch {
+    toast.add({
+      title: "Error",
+      description: "Failed to update project",
+      color: "red",
+    });
+  } finally {
+    updating.value = false;
+  }
+}
+
+// Populate edit form when modal opens
+watch(showEditModal, (isOpen) => {
+  if (isOpen && project.value) {
+    editForm.value = {
+      name: project.value.name,
+      repo: project.value.repo,
+      phase: project.value.phase,
+      focusAreas: [...project.value.focusAreas],
+    };
+    editGoalsText.value = project.value.goals.join("\n");
+  }
+});
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString("en-US", {

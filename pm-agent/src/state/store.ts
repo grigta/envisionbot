@@ -303,6 +303,30 @@ class Store {
     this.projects.upsert(project).catch(() => {});
   }
 
+  updateProject(project: Project): void {
+    if (!this._projects || !this.db) return;
+
+    const stmt = this.db.sqlite.prepare(`
+      UPDATE projects
+      SET name = ?, repo = ?, phase = ?, monitoring_level = ?, goals = ?, focus_areas = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      project.name,
+      project.repo,
+      project.phase,
+      project.monitoringLevel,
+      JSON.stringify(project.goals),
+      JSON.stringify(project.focusAreas),
+      project.updatedAt,
+      project.id
+    );
+
+    // Async cache invalidation
+    this.projects.upsert(project).catch(() => {});
+  }
+
   removeProject(id: string): void {
     if (!this._projects || !this.db) return;
 
