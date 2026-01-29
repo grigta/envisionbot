@@ -274,11 +274,14 @@ console.log(`Cleaned up ${cleaned} expired sessions`);
 
 ### WebSocket Authentication
 
-WebSocket connections (`/ws/live`) are currently not authenticated. This is being addressed in future updates. For now:
+WebSocket connections (`/ws/live`) now require authentication via JWT token:
 
-- ✅ Ensure WebSocket endpoint is not exposed publicly
-- ✅ Use a firewall to restrict access
-- ✅ Consider using SSH tunnel or VPN
+- Tokens can be passed via query parameter: `ws://localhost:3001/ws/live?token=<jwt_token>`
+- Or via `Authorization` header during WebSocket upgrade (some clients support this)
+- Connections without valid tokens are rejected with close code 1008 (Policy Violation)
+- Revoked tokens are checked and rejected during connection
+
+The frontend automatically includes the token when connecting to the WebSocket.
 
 ## Migration from Unauthenticated Setup
 
@@ -323,7 +326,7 @@ Planned authentication improvements:
 - [ ] Role-based access control (RBAC) enforcement
 - [ ] Two-factor authentication (2FA)
 - [ ] API key authentication for programmatic access
-- [ ] WebSocket authentication
+- [x] WebSocket authentication ✅ (Completed)
 - [ ] Session management UI in web panel
 - [ ] Password-based login option
 - [ ] LDAP/SSO integration

@@ -78,25 +78,66 @@ export async function startServer(): Promise<void> {
 
   await fastify.register(websocket);
 
-  // WebSocket endpoint
-  fastify.get("/ws/live", { websocket: true }, (connection) => {
+  // WebSocket endpoint with authentication
+  fastify.get("/ws/live", { websocket: true }, async (connection, request) => {
     const socket = connection.socket;
-    wsClients.add(socket);
-    console.log("WebSocket client connected");
 
-    socket.on("close", () => {
-      wsClients.delete(socket);
-      console.log("WebSocket client disconnected");
-    });
+    // Extract token from query parameter or upgrade request headers
+    const token =
+      (request.query as { token?: string })?.token ||
+      request.headers.authorization?.replace(/^Bearer\s+/i, "");
 
-    // Send initial state
-    socket.send(
-      JSON.stringify({
-        type: "connected",
-        timestamp: Date.now(),
-        data: stateStore.getStats(),
-      })
-    );
+    if (!token) {
+      console.log("WebSocket connection rejected: No token provided");
+      socket.close(1008, "Authentication required"); // Policy Violation
+      return;
+    }
+
+    // Verify token
+    try {
+      const { verifyToken } = await import("./auth/jwt.js");
+      const authDeps = stateStore.getRepositoryDeps();
+
+      if (!authDeps) {
+        console.log("WebSocket connection rejected: Database not initialized");
+        socket.close(1011, "Server error"); // Internal Error
+        return;
+      }
+
+      const payload = verifyToken(token);
+
+      // Check if token is revoked
+      const authRepo = new AuthRepository(authDeps);
+      const isRevoked = await authRepo.isTokenRevoked(payload.jti);
+
+      if (isRevoked) {
+        console.log("WebSocket connection rejected: Token revoked");
+        socket.close(1008, "Token revoked"); // Policy Violation
+        return;
+      }
+
+      // Token is valid, allow connection
+      wsClients.add(socket);
+      console.log(`WebSocket client connected (user: ${payload.name}, role: ${payload.role})`);
+
+      socket.on("close", () => {
+        wsClients.delete(socket);
+        console.log("WebSocket client disconnected");
+      });
+
+      // Send initial state
+      socket.send(
+        JSON.stringify({
+          type: "connected",
+          timestamp: Date.now(),
+          data: stateStore.getStats(),
+        })
+      );
+    } catch (error) {
+      console.log("WebSocket connection rejected: Invalid token", error instanceof Error ? error.message : "");
+      socket.close(1008, "Invalid or expired token"); // Policy Violation
+      return;
+    }
   });
 
   // Register auth hook (protects all routes except public ones)

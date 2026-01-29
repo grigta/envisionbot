@@ -45,8 +45,8 @@ export function createAuthHook(deps: RepositoryDeps) {
       return;
     }
 
-    // Skip auth for WebSocket upgrade requests (handled separately)
-    if (request.url.startsWith("/ws/")) {
+    // Skip auth for WebSocket upgrade requests (auth handled in WebSocket handler)
+    if (request.headers.upgrade === "websocket") {
       return;
     }
 
