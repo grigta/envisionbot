@@ -15,3 +15,4 @@ export { PlanRepository } from "./plan.repository.js";
 export { NewsRepository } from "./news.repository.js";
 export { CrawlerRepository } from "./crawler.repository.js";
 export { CompetitorRepository } from "./competitor.repository.js";
+export { TeamMemberRepository } from "./team.repository.js";

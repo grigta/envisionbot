@@ -15,6 +15,7 @@ import {
   IdeaRepository,
   ChatRepository,
   StateRepository,
+  TeamMemberRepository,
 } from "../repositories/index.js";
 import { MigrationService } from "../services/migration.service.js";
 import type {
@@ -43,6 +44,7 @@ class Store {
   private _ideas: IdeaRepository | null = null;
   private _chat: ChatRepository | null = null;
   private _state: StateRepository | null = null;
+  private _teamMembers: TeamMemberRepository | null = null;
 
   constructor() {
     // Auto-initialize
@@ -78,6 +80,7 @@ class Store {
       this._ideas = new IdeaRepository(deps);
       this._chat = new ChatRepository(deps);
       this._state = new StateRepository(deps);
+      this._teamMembers = new TeamMemberRepository(deps);
 
       // Run migration from JSON files if needed
       const migrationService = new MigrationService(this.db.sqlite, DATA_DIR);
@@ -131,6 +134,11 @@ class Store {
   private get state(): StateRepository {
     if (!this._state) throw new Error("Store not initialized");
     return this._state;
+  }
+
+  private get teamMembers(): TeamMemberRepository {
+    if (!this._teamMembers) throw new Error("Store not initialized");
+    return this._teamMembers;
   }
 
   // ==========================================
@@ -1095,6 +1103,18 @@ class Store {
       lastHealthCheck: this.getLastHealthCheck(),
       lastDeepAnalysis: this.getLastDeepAnalysis(),
     };
+  }
+
+  // ==========================================
+  // Team Members
+  // ==========================================
+
+  get teamMemberRepository(): TeamMemberRepository {
+    return this.teamMembers;
+  }
+
+  get taskRepository(): TaskRepository {
+    return this.tasks;
   }
 
   // ==========================================
