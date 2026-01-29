@@ -15,6 +15,7 @@ import {
   IdeaRepository,
   ChatRepository,
   StateRepository,
+  TeamMemberRepository,
 } from "../repositories/index.js";
 import { MigrationService } from "../services/migration.service.js";
 import type {
@@ -24,6 +25,7 @@ import type {
   ProjectMetrics,
   AnalysisReport,
   Idea,
+  TeamMember,
 } from "../types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -43,6 +45,7 @@ class Store {
   private _ideas: IdeaRepository | null = null;
   private _chat: ChatRepository | null = null;
   private _state: StateRepository | null = null;
+  private _team: TeamMemberRepository | null = null;
 
   constructor() {
     // Auto-initialize
@@ -78,6 +81,7 @@ class Store {
       this._ideas = new IdeaRepository(deps);
       this._chat = new ChatRepository(deps);
       this._state = new StateRepository(deps);
+      this._team = new TeamMemberRepository(deps);
 
       // Run migration from JSON files if needed
       const migrationService = new MigrationService(this.db.sqlite, DATA_DIR);
@@ -131,6 +135,11 @@ class Store {
   private get state(): StateRepository {
     if (!this._state) throw new Error("Store not initialized");
     return this._state;
+  }
+
+  private get team(): TeamMemberRepository {
+    if (!this._team) throw new Error("Store not initialized");
+    return this._team;
   }
 
   // ==========================================
@@ -352,6 +361,8 @@ class Store {
       completed_at: number | null;
       approved_by: Task["approvedBy"] | null;
       generated_by: Task["generatedBy"] | null;
+      assigned_to: string | null;
+      assigned_at: number | null;
     }>;
 
     return rows.map((row) => ({
@@ -371,6 +382,8 @@ class Store {
       completedAt: row.completed_at ?? undefined,
       approvedBy: row.approved_by ?? undefined,
       generatedBy: row.generated_by ?? undefined,
+      assignedTo: row.assigned_to ?? undefined,
+      assignedAt: row.assigned_at ?? undefined,
     }));
   }
 
@@ -396,6 +409,8 @@ class Store {
           completed_at: number | null;
           approved_by: Task["approvedBy"] | null;
           generated_by: Task["generatedBy"] | null;
+          assigned_to: string | null;
+          assigned_at: number | null;
         }
       | undefined;
 
@@ -418,6 +433,8 @@ class Store {
       completedAt: row.completed_at ?? undefined,
       approvedBy: row.approved_by ?? undefined,
       generatedBy: row.generated_by ?? undefined,
+      assignedTo: row.assigned_to ?? undefined,
+      assignedAt: row.assigned_at ?? undefined,
     };
   }
 
@@ -428,8 +445,9 @@ class Store {
       INSERT INTO tasks (
         id, project_id, type, priority, title, description, context,
         suggested_actions, related_issues, related_prs, status, kanban_status,
-        generated_at, completed_at, approved_by, generated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        generated_at, completed_at, approved_by, generated_by,
+        assigned_to, assigned_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         priority = excluded.priority,
@@ -442,7 +460,9 @@ class Store {
         status = excluded.status,
         kanban_status = excluded.kanban_status,
         completed_at = excluded.completed_at,
-        approved_by = excluded.approved_by
+        approved_by = excluded.approved_by,
+        assigned_to = excluded.assigned_to,
+        assigned_at = excluded.assigned_at
     `);
 
     stmt.run(
@@ -461,7 +481,9 @@ class Store {
       task.generatedAt,
       task.completedAt ?? null,
       task.approvedBy ?? null,
-      task.generatedBy ?? null
+      task.generatedBy ?? null,
+      task.assignedTo ?? null,
+      task.assignedAt ?? null
     );
 
     // Async cache invalidation
@@ -1070,6 +1092,136 @@ class Store {
       cache: this.db.cache,
       pubsub: this.db.pubsub,
     };
+  }
+
+  // ==========================================
+  // Team Members
+  // ==========================================
+
+  getTeamMembers(): TeamMember[] {
+    if (!this._team || !this.db) return [];
+
+    const stmt = this.db.sqlite.prepare("SELECT * FROM team_members ORDER BY name ASC");
+    const rows = stmt.all() as Array<{
+      id: string;
+      name: string;
+      email: string | null;
+      github_username: string | null;
+      telegram_username: string | null;
+      role: TeamMember["role"];
+      avatar_url: string | null;
+      is_active: number;
+      created_at: number;
+      updated_at: number;
+    }>;
+
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email ?? undefined,
+      githubUsername: row.github_username ?? undefined,
+      telegramUsername: row.telegram_username ?? undefined,
+      role: row.role,
+      avatarUrl: row.avatar_url ?? undefined,
+      isActive: row.is_active === 1,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
+
+  getTeamMember(id: string): TeamMember | undefined {
+    if (!this._team || !this.db) return undefined;
+
+    const stmt = this.db.sqlite.prepare("SELECT * FROM team_members WHERE id = ?");
+    const row = stmt.get(id) as
+      | {
+          id: string;
+          name: string;
+          email: string | null;
+          github_username: string | null;
+          telegram_username: string | null;
+          role: TeamMember["role"];
+          avatar_url: string | null;
+          is_active: number;
+          created_at: number;
+          updated_at: number;
+        }
+      | undefined;
+
+    if (!row) return undefined;
+
+    return {
+      id: row.id,
+      name: row.name,
+      email: row.email ?? undefined,
+      githubUsername: row.github_username ?? undefined,
+      telegramUsername: row.telegram_username ?? undefined,
+      role: row.role,
+      avatarUrl: row.avatar_url ?? undefined,
+      isActive: row.is_active === 1,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  addTeamMember(member: TeamMember): void {
+    if (!this._team || !this.db) return;
+
+    const stmt = this.db.sqlite.prepare(`
+      INSERT INTO team_members (
+        id, name, email, github_username, telegram_username, role,
+        avatar_url, is_active, created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        email = excluded.email,
+        github_username = excluded.github_username,
+        telegram_username = excluded.telegram_username,
+        role = excluded.role,
+        avatar_url = excluded.avatar_url,
+        is_active = excluded.is_active,
+        updated_at = excluded.updated_at
+    `);
+
+    stmt.run(
+      member.id,
+      member.name,
+      member.email ?? null,
+      member.githubUsername ?? null,
+      member.telegramUsername ?? null,
+      member.role,
+      member.avatarUrl ?? null,
+      member.isActive ? 1 : 0,
+      member.createdAt,
+      member.updatedAt
+    );
+
+    // Async cache invalidation
+    this.team.upsert(member).catch(() => {});
+  }
+
+  removeTeamMember(id: string): void {
+    if (!this._team || !this.db) return;
+
+    const stmt = this.db.sqlite.prepare("DELETE FROM team_members WHERE id = ?");
+    stmt.run(id);
+
+    // Async cache invalidation
+    this.team.delete(id).catch(() => {});
+  }
+
+  assignTaskToMember(taskId: string, memberId: string | null): Task | undefined {
+    const task = this.getTask(taskId);
+    if (!task) return undefined;
+
+    const updatedTask = {
+      ...task,
+      assignedTo: memberId ?? undefined,
+      assignedAt: memberId ? Date.now() : undefined,
+    };
+    this.addTask(updatedTask);
+    return updatedTask;
   }
 
   // ==========================================

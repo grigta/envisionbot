@@ -27,6 +27,8 @@ interface TaskRow {
   github_issue_state: "open" | "closed" | null;
   github_issue_created_at: number | null;
   github_issue_synced_at: number | null;
+  assigned_to: string | null;
+  assigned_at: number | null;
 }
 
 interface TaskFilter {
@@ -64,6 +66,8 @@ export class TaskRepository extends BaseRepository<Task> {
       githubIssueState: row.github_issue_state ?? undefined,
       githubIssueCreatedAt: row.github_issue_created_at ?? undefined,
       githubIssueSyncedAt: row.github_issue_synced_at ?? undefined,
+      assignedTo: row.assigned_to ?? undefined,
+      assignedAt: row.assigned_at ?? undefined,
     };
   }
 
@@ -194,8 +198,9 @@ export class TaskRepository extends BaseRepository<Task> {
         suggested_actions, related_issues, related_prs, status, kanban_status,
         generated_at, completed_at, approved_by, generated_by,
         github_issue_number, github_issue_url, github_issue_state,
-        github_issue_created_at, github_issue_synced_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        github_issue_created_at, github_issue_synced_at,
+        assigned_to, assigned_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         priority = excluded.priority,
@@ -213,7 +218,9 @@ export class TaskRepository extends BaseRepository<Task> {
         github_issue_url = excluded.github_issue_url,
         github_issue_state = excluded.github_issue_state,
         github_issue_created_at = excluded.github_issue_created_at,
-        github_issue_synced_at = excluded.github_issue_synced_at
+        github_issue_synced_at = excluded.github_issue_synced_at,
+        assigned_to = excluded.assigned_to,
+        assigned_at = excluded.assigned_at
     `);
 
     stmt.run(
@@ -237,7 +244,9 @@ export class TaskRepository extends BaseRepository<Task> {
       task.githubIssueUrl ?? null,
       task.githubIssueState ?? null,
       task.githubIssueCreatedAt ?? null,
-      task.githubIssueSyncedAt ?? null
+      task.githubIssueSyncedAt ?? null,
+      task.assignedTo ?? null,
+      task.assignedAt ?? null
     );
 
     await this.invalidateCache(

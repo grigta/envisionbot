@@ -13,6 +13,29 @@ export interface Project {
 
 export type FocusArea = "ci-cd" | "issues" | "prs" | "security" | "dependencies" | "performance";
 
+// Team Member types
+export interface TeamMember {
+  id: string;
+  name: string;
+  email?: string;
+  githubUsername?: string;
+  telegramUsername?: string;
+  role: TeamMemberRole;
+  avatarUrl?: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TeamMemberRole = "owner" | "admin" | "developer" | "designer" | "qa" | "viewer";
+
+export interface ProjectTeamMember {
+  projectId: string;
+  memberId: string;
+  role?: string;
+  joinedAt: number;
+}
+
 // Task types
 export interface Task {
   id: string;
@@ -37,6 +60,9 @@ export interface Task {
   githubIssueState?: "open" | "closed";
   githubIssueCreatedAt?: number;
   githubIssueSyncedAt?: number;
+  // Task Assignment
+  assignedTo?: string; // team member ID
+  assignedAt?: number;
 }
 
 export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";

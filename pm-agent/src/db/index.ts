@@ -38,7 +38,7 @@ export interface Database {
   close: () => Promise<void>;
 }
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 /**
  * Run incremental migrations
@@ -170,6 +170,63 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     `);
 
     setSchemaVersion(sqlite, 5, "Add GitHub Issue fields");
+  }
+
+  // Migration v5 -> v6: Add team members and task assignments
+  if (fromVersion < 6) {
+    console.log("Running migration v6: Add team members and task assignments");
+
+    // Create team members table
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS team_members (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        github_username TEXT,
+        telegram_username TEXT,
+        role TEXT NOT NULL DEFAULT 'developer' CHECK (role IN ('owner', 'admin', 'developer', 'designer', 'qa', 'viewer')),
+        avatar_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_team_members_email ON team_members(email);
+      CREATE INDEX IF NOT EXISTS idx_team_members_github ON team_members(github_username);
+      CREATE INDEX IF NOT EXISTS idx_team_members_active ON team_members(is_active);
+
+      CREATE TABLE IF NOT EXISTS project_team_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        member_id TEXT NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+        role TEXT,
+        joined_at INTEGER NOT NULL,
+        UNIQUE(project_id, member_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_members_project ON project_team_members(project_id);
+      CREATE INDEX IF NOT EXISTS idx_project_members_member ON project_team_members(member_id);
+    `);
+
+    // Add assignment columns to tasks table
+    const taskColumns = [
+      "ALTER TABLE tasks ADD COLUMN assigned_to TEXT REFERENCES team_members(id) ON DELETE SET NULL",
+      "ALTER TABLE tasks ADD COLUMN assigned_at INTEGER"
+    ];
+
+    for (const sql of taskColumns) {
+      try {
+        sqlite.exec(sql);
+      } catch (error) {
+        // Column already exists, skip
+      }
+    }
+
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);
+    `);
+
+    setSchemaVersion(sqlite, 6, "Add team members and task assignments");
   }
 }
 

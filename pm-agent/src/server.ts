@@ -621,6 +621,122 @@ export async function startServer(): Promise<void> {
     return reply.send(result);
   });
 
+  // Team Members
+  fastify.get("/api/team/members", async () => {
+    return stateStore.getTeamMembers();
+  });
+
+  fastify.get<{ Params: { id: string } }>("/api/team/members/:id", async (request, reply) => {
+    const member = stateStore.getTeamMember(request.params.id);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+    return member;
+  });
+
+  fastify.post<{
+    Body: {
+      id?: string;
+      name: string;
+      email?: string;
+      githubUsername?: string;
+      telegramUsername?: string;
+      role?: string;
+      avatarUrl?: string;
+    };
+  }>("/api/team/members", async (request, reply) => {
+    const { id, name, email, githubUsername, telegramUsername, role, avatarUrl } = request.body;
+
+    if (!name) {
+      return reply.status(400).send({ error: "Name is required" });
+    }
+
+    const member: import("./types.js").TeamMember = {
+      id: id || crypto.randomUUID(),
+      name,
+      email,
+      githubUsername,
+      telegramUsername,
+      role: (role as import("./types.js").TeamMemberRole) || "developer",
+      avatarUrl,
+      isActive: true,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    stateStore.addTeamMember(member);
+
+    return reply.status(201).send(member);
+  });
+
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      email?: string;
+      githubUsername?: string;
+      telegramUsername?: string;
+      role?: string;
+      avatarUrl?: string;
+      isActive?: boolean;
+    };
+  }>("/api/team/members/:id", async (request, reply) => {
+    const member = stateStore.getTeamMember(request.params.id);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+
+    const updatedMember: import("./types.js").TeamMember = {
+      ...member,
+      ...request.body,
+      updatedAt: Date.now(),
+    };
+
+    stateStore.addTeamMember(updatedMember);
+
+    return updatedMember;
+  });
+
+  fastify.delete<{ Params: { id: string } }>("/api/team/members/:id", async (request, reply) => {
+    const member = stateStore.getTeamMember(request.params.id);
+    if (!member) {
+      return reply.status(404).send({ error: "Team member not found" });
+    }
+
+    stateStore.removeTeamMember(request.params.id);
+
+    return { success: true };
+  });
+
+  // Task Assignment
+  fastify.post<{
+    Params: { taskId: string };
+    Body: { memberId: string | null };
+  }>("/api/tasks/:taskId/assign", async (request, reply) => {
+    const task = stateStore.getTask(request.params.taskId);
+    if (!task) {
+      return reply.status(404).send({ error: "Task not found" });
+    }
+
+    if (request.body.memberId) {
+      const member = stateStore.getTeamMember(request.body.memberId);
+      if (!member) {
+        return reply.status(404).send({ error: "Team member not found" });
+      }
+    }
+
+    const updatedTask = stateStore.assignTaskToMember(
+      request.params.taskId,
+      request.body.memberId
+    );
+
+    if (!updatedTask) {
+      return reply.status(500).send({ error: "Failed to assign task" });
+    }
+
+    return updatedTask;
+  });
+
   // Pending Actions (Approvals)
   fastify.get("/api/actions/pending", async () => {
     return approvalQueue.getPending();
