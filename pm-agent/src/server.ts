@@ -100,10 +100,13 @@ export async function startServer(): Promise<void> {
   });
 
   // Register auth hook (protects all routes except public ones)
+  // Wait for store initialization before registering auth
+  await stateStore.waitForInit();
   const deps = stateStore.getRepositoryDeps();
-  if (deps) {
-    fastify.addHook("onRequest", createAuthHook(deps));
+  if (!deps) {
+    throw new Error("Failed to initialize database - cannot start server without auth");
   }
+  fastify.addHook("onRequest", createAuthHook(deps));
 
   // ============================================
   // AUTH API

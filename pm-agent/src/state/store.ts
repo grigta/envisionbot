@@ -1057,6 +1057,12 @@ class Store {
   // Repository Dependencies (for external services)
   // ==========================================
 
+  async waitForInit(): Promise<void> {
+    if (this.initPromise) {
+      await this.initPromise;
+    }
+  }
+
   getRepositoryDeps(): RepositoryDeps | null {
     if (!this.db) return null;
     return {

@@ -57,11 +57,30 @@ TELEGRAM_ADMIN_CHAT_ID=123456789
 # Сервер
 PORT=3001
 
+# Аутентификация (ОБЯЗАТЕЛЬНО)
+# Сгенерируйте секрет: openssl rand -base64 32
+JWT_SECRET=your-secure-random-secret-here
+
 # Расписание
 HEALTH_CHECK_INTERVAL=4h
 DEEP_ANALYSIS_TIME=09:00
 TIMEZONE=Europe/Moscow
 ```
+
+**🔒 Важно:** Настройте аутентификацию перед первым запуском:
+
+```bash
+# 1. Сгенерируйте JWT secret
+openssl rand -base64 32
+
+# 2. Добавьте в .env
+echo "JWT_SECRET=<ваш-secret>" >> .env
+
+# 3. Создайте код доступа для входа
+npx tsx src/scripts/manage-codes.ts create "Admin" admin
+```
+
+Подробная инструкция: [SETUP_AUTH.md](SETUP_AUTH.md)
 
 ### 2. Настройка веб-панели
 
