@@ -12,17 +12,18 @@ export interface ChatContext {
  * Includes system context, project info, and the user's message
  */
 export function buildChatContext(message: string, projectId?: string): ChatContext {
-  // Parse @-mentions from the message
-  const { mentions } = parseMentions(message);
-  const mentionContext = buildMentionContext(mentions);
+  try {
+    // Parse @-mentions from the message
+    const { mentions } = parseMentions(message);
+    const mentionContext = buildMentionContext(mentions);
 
-  // Extract project IDs from mentions
-  const projectIds = extractProjectIds(mentions);
+    // Extract project IDs from mentions
+    const projectIds = extractProjectIds(mentions);
 
-  // If a project ID was explicitly provided, add it
-  if (projectId && !projectIds.includes(projectId)) {
-    projectIds.push(projectId);
-  }
+    // If a project ID was explicitly provided, add it
+    if (projectId && !projectIds.includes(projectId)) {
+      projectIds.push(projectId);
+    }
 
   // Build the system context
   let context = `Ты Envision CEO ассистент. Помогаешь пользователю управлять его проектами.
@@ -76,14 +77,23 @@ export function buildChatContext(message: string, projectId?: string): ChatConte
     context += mentionContext;
   }
 
-  // Add the user's message
-  context += `\n## Сообщение пользователя\n\n${message}`;
+    // Add the user's message
+    context += `\n## Сообщение пользователя\n\n${message}`;
 
-  return {
-    prompt: context,
-    projectIds,
-    mentions,
-  };
+    return {
+      prompt: context,
+      projectIds,
+      mentions,
+    };
+  } catch (error) {
+    console.error("Error building chat context:", error);
+    // Return a minimal context to prevent complete failure
+    return {
+      prompt: `Ты Envision CEO ассистент.\n\n## Сообщение пользователя\n\n${message}`,
+      projectIds: projectId ? [projectId] : [],
+      mentions: [],
+    };
+  }
 }
 
 /**

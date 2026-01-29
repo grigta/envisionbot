@@ -899,21 +899,32 @@ export async function startServer(): Promise<void> {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error("Chat error:", error);
 
-      broadcast({
-        type: "chat_complete",
-        timestamp: Date.now(),
-        data: { chatId, response: "", success: false, error: errorMessage },
-      });
+      // Always broadcast completion to prevent UI freezing
+      try {
+        broadcast({
+          type: "chat_complete",
+          timestamp: Date.now(),
+          data: { chatId, response: "", success: false, error: errorMessage },
+        });
+      } catch (broadcastError) {
+        console.error("Failed to broadcast chat error:", broadcastError);
+      }
 
-      chatHistory.addAssistantMessage("", {
-        sessionId,
-        steps,
-        success: false,
-        error: errorMessage,
-      });
+      // Try to save error to history
+      try {
+        chatHistory.addAssistantMessage("", {
+          sessionId,
+          steps,
+          success: false,
+          error: errorMessage,
+        });
+      } catch (historyError) {
+        console.error("Failed to save error to history:", historyError);
+      }
 
-      return reply.status(500).send({ error: errorMessage });
+      return reply.status(500).send({ error: errorMessage, chatId });
     }
   });
 

@@ -64,6 +64,8 @@ class ChatHistory {
       writeFileSync(CHAT_HISTORY_FILE, JSON.stringify(this.store, null, 2));
     } catch (error) {
       console.error("Failed to save chat history:", error);
+      // Don't throw - allow operation to continue even if save fails
+      // This prevents cascading failures
     }
   }
 
@@ -71,13 +73,24 @@ class ChatHistory {
    * Get or create current session
    */
   getCurrentSession(): ChatSession {
-    if (this.store.currentSessionId) {
-      const session = this.store.sessions.find((s) => s.id === this.store.currentSessionId);
-      if (session) return session;
-    }
+    try {
+      if (this.store.currentSessionId) {
+        const session = this.store.sessions.find((s) => s.id === this.store.currentSessionId);
+        if (session) return session;
+      }
 
-    // Create new session
-    return this.createSession();
+      // Create new session
+      return this.createSession();
+    } catch (error) {
+      console.error("Error getting current session:", error);
+      // Return a fallback session to prevent crashes
+      return {
+        id: `session-${Date.now()}`,
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+    }
   }
 
   /**
