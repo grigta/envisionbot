@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  pm-agent:
+    build:
+      context: ./pm-agent
+      dockerfile: Dockerfile
+    container_name: envision-ceo-agent
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      # Server configuration
+      - PORT=3001
+      - HOST=0.0.0.0
+      - NODE_ENV=production
+
+      # Authentication (REQUIRED)
+      # Generate with: openssl rand -base64 32
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+
+      # Claude API (choose one option)
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+
+      # Telegram Bot
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_ADMIN_CHAT_ID=${TELEGRAM_ADMIN_CHAT_ID}
+
+      # Scheduling
+      - HEALTH_CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-4h}
+      - DEEP_ANALYSIS_TIME=${DEEP_ANALYSIS_TIME:-09:00}
+      - TIMEZONE=${TIMEZONE:-UTC}
+
+      # OpenRouter API (for crawler/scraper)
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-google/gemini-3-flash-preview}
+
+      # Task Executor
+      - TASK_EXECUTOR_ENABLED=${TASK_EXECUTOR_ENABLED:-true}
+      - TASK_EXECUTOR_INTERVAL=${TASK_EXECUTOR_INTERVAL:-*/5 * * * *}
+      - TASK_EXECUTOR_REQUIRE_APPROVAL=${TASK_EXECUTOR_REQUIRE_APPROVAL:-false}
+
+      # GitHub Integration
+      - GITHUB_AUTO_CREATE_ISSUE=${GITHUB_AUTO_CREATE_ISSUE:-true}
+      - GITHUB_SYNC_ENABLED=${GITHUB_SYNC_ENABLED:-true}
+      - GITHUB_SYNC_INTERVAL=${GITHUB_SYNC_INTERVAL:-15}
+    volumes:
+      # Persist data directory
+      - ./pm-agent/data:/app/data
+      # Mount GitHub CLI config if available
+      - ~/.config/gh:/root/.config/gh:ro
+    networks:
+      - envision-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  pm-panel:
+    build:
+      context: ./pm-panel
+      dockerfile: Dockerfile
+    container_name: envision-ceo-panel
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # API endpoint for the panel
+      - API_BASE_URL=${API_BASE_URL:-http://pm-agent:3001}
+    depends_on:
+      - pm-agent
+    networks:
+      - envision-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  envision-network:
+    driver: bridge
+
+volumes:
+  pm-agent-data:
+    driver: local
