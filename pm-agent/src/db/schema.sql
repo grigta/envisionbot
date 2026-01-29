@@ -583,3 +583,33 @@ CREATE TABLE IF NOT EXISTS competitor_reports (
 
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_type ON competitor_reports(report_type);
 CREATE INDEX IF NOT EXISTS idx_competitor_reports_created ON competitor_reports(created_at DESC);
+
+-- ============================================
+-- NOTIFICATION PREFERENCES TABLE (User notification settings)
+-- ============================================
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES access_codes(id) ON DELETE CASCADE,
+    -- Email settings
+    email_enabled INTEGER NOT NULL DEFAULT 0,
+    email_address TEXT,
+    -- Telegram settings
+    telegram_enabled INTEGER NOT NULL DEFAULT 1,
+    telegram_chat_id TEXT,
+    -- Quiet hours
+    quiet_hours_enabled INTEGER NOT NULL DEFAULT 0,
+    quiet_hours_start TEXT, -- Format: "HH:MM" (24-hour)
+    quiet_hours_end TEXT,   -- Format: "HH:MM" (24-hour)
+    quiet_hours_timezone TEXT DEFAULT 'UTC',
+    -- Notification type filters (JSON array)
+    notification_types TEXT NOT NULL DEFAULT '["all"]',
+    -- Priority filter
+    min_priority TEXT DEFAULT 'low' CHECK (min_priority IN ('low', 'medium', 'high', 'critical')),
+    -- Metadata
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notification_prefs_user ON notification_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_email ON notification_preferences(email_enabled, email_address);
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_telegram ON notification_preferences(telegram_enabled, telegram_chat_id);

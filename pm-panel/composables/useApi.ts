@@ -386,6 +386,19 @@ export function useApi() {
   const deleteCompetitorReport = (reportId: string) =>
     fetchApi<{ success: boolean }>(`/api/competitors/reports/${reportId}`, { method: "DELETE" });
 
+  // Notification Preferences
+  const getNotificationPreferences = () =>
+    fetchApi<NotificationPreferences>("/api/user/notification-preferences");
+  const updateNotificationPreferences = (data: Partial<NotificationPreferences>) =>
+    fetchApi<NotificationPreferences>("/api/user/notification-preferences", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  const checkQuietHours = () =>
+    fetchApi<{ isQuietTime: boolean; reason?: string; nextAllowedTime?: string }>(
+      "/api/user/notification-preferences/quiet-hours-check"
+    );
+
   return {
     // Projects
     getProjects,
@@ -475,6 +488,10 @@ export function useApi() {
     getCompetitorReports,
     getCompetitorReport,
     deleteCompetitorReport,
+    // Notification Preferences
+    getNotificationPreferences,
+    updateNotificationPreferences,
+    checkQuietHours,
   };
 }
 
@@ -975,4 +992,18 @@ export interface CrawlerStats {
   totalItems: number;
   processedItems: number;
   lastCrawlAt?: number;
+}
+
+export interface NotificationPreferences {
+  id?: string;
+  userId?: string;
+  emailEnabled: boolean;
+  emailAddress?: string;
+  telegramEnabled: boolean;
+  telegramChatId?: string;
+  quietHoursEnabled: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  quietHoursTimezone: string;
+  minPriority: "low" | "medium" | "high" | "critical";
 }

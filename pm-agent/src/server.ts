@@ -1822,6 +1822,101 @@ export async function startServer(): Promise<void> {
     }
   );
 
+  // ============================================
+  // Notification Preferences API
+  // ============================================
+
+  // Get notification preferences
+  fastify.get("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { NotificationService } = await import("./services/notification.service.js");
+    const service = new NotificationService(deps.db);
+
+    // Get user ID from JWT (if authenticated) or use global settings
+    const userId = (request as any).user?.sub;
+
+    const preferences = service.getPreferences(userId);
+
+    if (!preferences) {
+      // Return default preferences
+      return {
+        emailEnabled: false,
+        telegramEnabled: true,
+        quietHoursEnabled: false,
+        quietHoursStart: "22:00",
+        quietHoursEnd: "08:00",
+        quietHoursTimezone: process.env.TIMEZONE || "UTC",
+        notificationTypes: ["all"],
+        minPriority: "low",
+      };
+    }
+
+    return preferences;
+  });
+
+  // Update notification preferences
+  fastify.put<{
+    Body: {
+      emailEnabled?: boolean;
+      emailAddress?: string;
+      telegramEnabled?: boolean;
+      telegramChatId?: string;
+      quietHoursEnabled?: boolean;
+      quietHoursStart?: string;
+      quietHoursEnd?: string;
+      quietHoursTimezone?: string;
+      notificationTypes?: string[];
+      minPriority?: string;
+    };
+  }>("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { NotificationService } = await import("./services/notification.service.js");
+    const service = new NotificationService(deps.db);
+
+    // Get user ID from JWT (if authenticated) or use global settings
+    const userId = (request as any).user?.sub;
+
+    try {
+      const updated = service.updatePreferences({
+        userId,
+        ...request.body,
+      } as any);
+
+      return updated;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return reply.status(400).send({ error: errorMessage });
+    }
+  });
+
+  // Check if current time is in quiet hours
+  fastify.get("/api/user/notification-preferences/quiet-hours-check", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { NotificationService } = await import("./services/notification.service.js");
+    const service = new NotificationService(deps.db);
+
+    const userId = (request as any).user?.sub;
+    const preferences = service.getPreferences(userId);
+
+    if (!preferences) {
+      return { isQuietTime: false };
+    }
+
+    return service.isQuietTime(preferences);
+  });
+
   // Start server
   try {
     await fastify.listen({ port: PORT, host: HOST });

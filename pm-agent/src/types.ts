@@ -304,3 +304,46 @@ export interface CodebaseAnalysisResult {
   }>;
   notes: string;
 }
+
+// ============================================
+// NOTIFICATION PREFERENCES TYPES
+// ============================================
+
+export type NotificationType =
+  | "all"
+  | "health_check"
+  | "deep_analysis"
+  | "task_created"
+  | "action_pending"
+  | "ci_failure"
+  | "security_alert"
+  | "pr_review"
+  | "issue_created";
+
+export interface NotificationPreferences {
+  id: string;
+  userId?: string; // Optional for backward compatibility (null = global admin settings)
+  // Email settings
+  emailEnabled: boolean;
+  emailAddress?: string;
+  // Telegram settings
+  telegramEnabled: boolean;
+  telegramChatId?: string;
+  // Quiet hours
+  quietHoursEnabled: boolean;
+  quietHoursStart?: string; // Format: "HH:MM" (24-hour)
+  quietHoursEnd?: string;   // Format: "HH:MM" (24-hour)
+  quietHoursTimezone: string; // IANA timezone (e.g., "Europe/Moscow", "UTC")
+  // Notification filters
+  notificationTypes: NotificationType[]; // Which types to receive
+  minPriority: Priority; // Minimum priority to notify
+  // Metadata
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QuietHoursCheck {
+  isQuietTime: boolean;
+  reason?: string;
+  nextAllowedTime?: string; // ISO string
+}
