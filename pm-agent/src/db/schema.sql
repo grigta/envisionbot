@@ -71,6 +71,22 @@ CREATE INDEX IF NOT EXISTS idx_tasks_github_issue ON tasks(github_issue_number);
 CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_state ON tasks(github_issue_state);
 
 -- ============================================
+-- TASK DEPENDENCIES TABLE
+-- ============================================
+CREATE TABLE IF NOT EXISTS task_dependencies (
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    type TEXT NOT NULL DEFAULT 'depends_on' CHECK (type IN ('depends_on', 'blocks')),
+    created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+    PRIMARY KEY (task_id, depends_on_task_id),
+    CHECK (task_id != depends_on_task_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
+CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(type);
+
+-- ============================================
 -- PENDING ACTIONS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS pending_actions (

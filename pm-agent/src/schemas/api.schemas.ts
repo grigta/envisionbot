@@ -37,6 +37,11 @@ export const UpdateKanbanStatusSchema = z.object({
   kanbanStatus: z.enum(["not_started", "backlog", "in_progress", "review", "done"]),
 });
 
+export const AddTaskDependencySchema = z.object({
+  dependsOnTaskId: z.string().min(1, "Dependency task ID is required"),
+  type: z.enum(["depends_on", "blocks"]).optional().default("depends_on"),
+});
+
 // ============================================
 // Agent Schemas
 // ============================================
@@ -170,6 +175,7 @@ export type CreateProjectRequest = z.infer<typeof CreateProjectSchema>;
 export type UpdatePlanMarkdownRequest = z.infer<typeof UpdatePlanMarkdownSchema>;
 export type UpdateTaskStatusRequest = z.infer<typeof UpdateTaskStatusSchema>;
 export type UpdateKanbanStatusRequest = z.infer<typeof UpdateKanbanStatusSchema>;
+export type AddTaskDependencyRequest = z.infer<typeof AddTaskDependencySchema>;
 export type RunAgentRequest = z.infer<typeof RunAgentSchema>;
 export type CreateIdeaRequest = z.infer<typeof CreateIdeaSchema>;
 export type LaunchIdeaRequest = z.infer<typeof LaunchIdeaSchema>;
