@@ -19,6 +19,8 @@ import { createAuthHook, createRateLimitHook, signToken, decodeToken } from "./a
 import { getAuthConfig } from "./auth.js";
 import type { AnalysisStatus, ProjectPlan, KanbanStatus } from "./types.js";
 import type { CrawlerServiceAuthConfig } from "./services/crawler.service.js";
+import { validateBody } from "./middleware/validation.js";
+import * as schemas from "./schemas/api.schemas.js";
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 
@@ -163,54 +165,54 @@ export async function startServer(): Promise<void> {
   // ============================================
 
   // Login with access code
-  fastify.post<{ Body: { code: string } }>("/api/auth/login", async (request, reply) => {
-    const { code } = request.body;
-
-    if (!code) {
-      return reply.status(400).send({ error: "Access code is required" });
-    }
+  fastify.post<{ Body: schemas.LoginRequest }>(
+    "/api/auth/login",
+    { preHandler: validateBody(schemas.LoginRequestSchema) },
+    async (request, reply) => {
+      const { code } = request.body;
 
     const authDeps = stateStore.getRepositoryDeps();
     if (!authDeps) {
       return reply.status(500).send({ error: "Database not initialized" });
     }
 
-    const authRepo = new AuthRepository(authDeps);
-    const accessCode = await authRepo.validateCode(code);
+      const authRepo = new AuthRepository(authDeps);
+      const accessCode = await authRepo.validateCode(code);
 
-    if (!accessCode) {
-      return reply.status(401).send({ error: "Invalid access code" });
-    }
+      if (!accessCode) {
+        return reply.status(401).send({ error: "Invalid access code" });
+      }
 
-    // Generate JWT
-    const token = signToken({
-      sub: accessCode.id,
-      name: accessCode.name,
-      role: accessCode.role,
-    });
-
-    // Decode to get jti and exp
-    const decoded = decodeToken(token)!;
-
-    // Create session record
-    await authRepo.createSession({
-      accessCodeId: accessCode.id,
-      tokenJti: decoded.jti,
-      ipAddress: request.ip,
-      userAgent: request.headers["user-agent"],
-      createdAt: Date.now(),
-      expiresAt: decoded.exp * 1000,
-    });
-
-    return {
-      token,
-      user: {
+      // Generate JWT
+      const token = signToken({
+        sub: accessCode.id,
         name: accessCode.name,
         role: accessCode.role,
-      },
-      expiresAt: decoded.exp * 1000,
-    };
-  });
+      });
+
+      // Decode to get jti and exp
+      const decoded = decodeToken(token)!;
+
+      // Create session record
+      await authRepo.createSession({
+        accessCodeId: accessCode.id,
+        tokenJti: decoded.jti,
+        ipAddress: request.ip,
+        userAgent: request.headers["user-agent"],
+        createdAt: Date.now(),
+        expiresAt: decoded.exp * 1000,
+      });
+
+      return {
+        token,
+        user: {
+          name: accessCode.name,
+          role: accessCode.role,
+        },
+        expiresAt: decoded.exp * 1000,
+      };
+    }
+  );
 
   // Validate token
   fastify.get("/api/auth/validate", async (request, reply) => {
@@ -302,8 +304,9 @@ export async function startServer(): Promise<void> {
     return stateStore.getMetrics(request.params.id);
   });
 
-  fastify.post<{ Body: { id: string; name: string; repo: string; phase?: string; goals?: string[]; focusAreas?: string[] } }>(
+  fastify.post<{ Body: schemas.CreateProjectRequest }>(
     "/api/projects",
+    { preHandler: validateBody(schemas.CreateProjectSchema) },
     async (request) => {
       const { id, name, repo, phase = "planning", goals = [], focusAreas = [] } = request.body;
       const project = {
@@ -439,8 +442,9 @@ export async function startServer(): Promise<void> {
   });
 
   // Update project plan
-  fastify.put<{ Params: { id: string }; Body: { markdown: string } }>(
+  fastify.put<{ Params: { id: string }; Body: schemas.UpdatePlanMarkdownRequest }>(
     "/api/projects/:id/plan",
+    { preHandler: validateBody(schemas.UpdatePlanMarkdownSchema) },
     async (request, reply) => {
       const deps = stateStore.getRepositoryDeps();
       if (!deps) {
@@ -545,8 +549,9 @@ export async function startServer(): Promise<void> {
     return task;
   });
 
-  fastify.post<{ Params: { id: string }; Body: { status: string } }>(
+  fastify.post<{ Params: { id: string }; Body: schemas.UpdateTaskStatusRequest }>(
     "/api/tasks/:id/status",
+    { preHandler: validateBody(schemas.UpdateTaskStatusSchema) },
     async (request, reply) => {
       const { id } = request.params;
       const { status } = request.body;
@@ -594,13 +599,11 @@ export async function startServer(): Promise<void> {
   );
 
   // Update task kanban status (for Kanban board drag-and-drop)
-  fastify.patch<{ Params: { id: string }; Body: { kanbanStatus: string } }>(
+  fastify.patch<{ Params: { id: string }; Body: schemas.UpdateKanbanStatusRequest }>(
     "/api/tasks/:id/kanban-status",
+    { preHandler: validateBody(schemas.UpdateKanbanStatusSchema) },
     async (request, reply) => {
       const { kanbanStatus } = request.body;
-      if (!["not_started", "backlog", "in_progress", "review", "done"].includes(kanbanStatus)) {
-        return reply.status(400).send({ error: "Invalid kanbanStatus. Must be one of: 'not_started', 'backlog', 'in_progress', 'review', 'done'" });
-      }
       const task = stateStore.updateTask(request.params.id, {
         kanbanStatus: kanbanStatus as KanbanStatus,
       });
@@ -718,8 +721,9 @@ export async function startServer(): Promise<void> {
     return result;
   });
 
-  fastify.post<{ Params: { id: string }; Body: { reason?: string } }>(
+  fastify.post<{ Params: { id: string }; Body: schemas.RejectActionRequest }>(
     "/api/actions/:id/reject",
+    { preHandler: validateBody(schemas.RejectActionSchema) },
     async (request, reply) => {
       const result = approvalQueue.reject(request.params.id, request.body.reason);
       if (!result.success) {
@@ -752,15 +756,19 @@ export async function startServer(): Promise<void> {
   });
 
   // Agent control
-  fastify.post<{ Body: { prompt: string } }>("/api/agent/run", async (request) => {
-    const { prompt } = request.body;
-    const result = await runAgent(prompt, { type: "manual" });
-    return {
-      response: result.response,
-      tasksCount: result.tasks.length,
-      reportId: result.report?.id,
-    };
-  });
+  fastify.post<{ Body: schemas.RunAgentRequest }>(
+    "/api/agent/run",
+    { preHandler: validateBody(schemas.RunAgentSchema) },
+    async (request) => {
+      const { prompt } = request.body;
+      const result = await runAgent(prompt, { type: "manual" });
+      return {
+        response: result.response,
+        tasksCount: result.tasks.length,
+        reportId: result.report?.id,
+      };
+    }
+  );
 
   fastify.post("/api/agent/health-check", async () => {
     const report = await runHealthCheck();
@@ -799,22 +807,24 @@ export async function startServer(): Promise<void> {
     return idea;
   });
 
-  fastify.post<{
-    Body: { title: string; description: string };
-  }>("/api/ideas", async (request) => {
-    const { title, description } = request.body;
-    const idea: Idea = {
-      id: `idea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      title,
-      description,
-      status: "submitted",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    stateStore.addIdea(idea);
-    broadcast({ type: "idea_created", timestamp: Date.now(), data: { idea } });
-    return idea;
-  });
+  fastify.post<{ Body: schemas.CreateIdeaRequest }>(
+    "/api/ideas",
+    { preHandler: validateBody(schemas.CreateIdeaSchema) },
+    async (request) => {
+      const { title, description } = request.body;
+      const idea: Idea = {
+        id: `idea-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title,
+        description,
+        status: "submitted",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      stateStore.addIdea(idea);
+      broadcast({ type: "idea_created", timestamp: Date.now(), data: { idea } });
+      return idea;
+    }
+  );
 
   fastify.delete<{ Params: { id: string } }>("/api/ideas/:id", async (request, reply) => {
     const idea = stateStore.getIdea(request.params.id);
@@ -859,8 +869,9 @@ export async function startServer(): Promise<void> {
     return { success: true, message: "Plan approved" };
   });
 
-  fastify.post<{ Params: { id: string }; Body: { repoName?: string; isPrivate?: boolean } }>(
+  fastify.post<{ Params: { id: string }; Body: schemas.LaunchIdeaRequest }>(
     "/api/ideas/:id/launch",
+    { preHandler: validateBody(schemas.LaunchIdeaSchema) },
     async (request, reply) => {
       const idea = stateStore.getIdea(request.params.id);
       if (!idea) {
@@ -901,14 +912,11 @@ export async function startServer(): Promise<void> {
   // ============================================
 
   // Send a chat message
-  fastify.post<{
-    Body: { message: string; projectId?: string; sessionId?: string };
-  }>("/api/chat/message", async (request, reply) => {
-    const { message, projectId, sessionId } = request.body;
-
-    if (!message || message.trim().length === 0) {
-      return reply.status(400).send({ error: "Message is required" });
-    }
+  fastify.post<{ Body: schemas.SendChatMessageRequest }>(
+    "/api/chat/message",
+    { preHandler: validateBody(schemas.SendChatMessageSchema) },
+    async (request, reply) => {
+      const { message, projectId, sessionId } = request.body;
 
     const chatId = `chat-${Date.now()}`;
 
@@ -1018,10 +1026,14 @@ export async function startServer(): Promise<void> {
   });
 
   // Create new chat session
-  fastify.post<{ Body: { title?: string } }>("/api/chat/sessions", async (request) => {
-    const session = chatHistory.createSession(request.body.title);
-    return session;
-  });
+  fastify.post<{ Body: schemas.CreateChatSessionRequest }>(
+    "/api/chat/sessions",
+    { preHandler: validateBody(schemas.CreateChatSessionSchema) },
+    async (request) => {
+      const session = chatHistory.createSession(request.body.title);
+      return session;
+    }
+  );
 
   // Switch to a session
   fastify.post<{ Params: { id: string } }>("/api/chat/sessions/:id/switch", async (request, reply) => {
@@ -1172,9 +1184,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Trigger news crawl
-  fastify.post<{
-    Body: { fetchDetails?: boolean; limit?: number };
-  }>("/api/news/crawl", async (request, reply) => {
+  fastify.post<{ Body: schemas.TriggerNewsCrawlRequest }>(
+    "/api/news/crawl",
+    { preHandler: validateBody(schemas.TriggerNewsCrawlSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1222,7 +1235,10 @@ export async function startServer(): Promise<void> {
   });
 
   // AI analyze a specific news item
-  fastify.post<{ Params: { id: string } }>("/api/news/:id/analyze", async (request, reply) => {
+  fastify.post<{ Params: { id: string }; Body: schemas.AnalyzeNewsRequest }>(
+    "/api/news/:id/analyze",
+    { preHandler: validateBody(schemas.AnalyzeNewsSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1321,16 +1337,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Create crawler source
-  fastify.post<{
-    Body: {
-      name: string;
-      url: string;
-      prompt?: string;
-      schema?: object;
-      requiresBrowser?: boolean;
-      crawlIntervalHours?: number;
-    };
-  }>("/api/crawler/sources", async (request, reply) => {
+  fastify.post<{ Body: schemas.CreateCrawlerSourceRequest }>(
+    "/api/crawler/sources",
+    { preHandler: validateBody(schemas.CreateCrawlerSourceSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1346,18 +1356,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Update crawler source
-  fastify.put<{
-    Params: { id: string };
-    Body: Partial<{
-      name: string;
-      url: string;
-      prompt: string;
-      schema: object;
-      requiresBrowser: boolean;
-      crawlIntervalHours: number;
-      isEnabled: boolean;
-    }>;
-  }>("/api/crawler/sources/:id", async (request, reply) => {
+  fastify.put<{ Params: { id: string }; Body: schemas.UpdateCrawlerSourceRequest }>(
+    "/api/crawler/sources/:id",
+    { preHandler: validateBody(schemas.UpdateCrawlerSourceSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1397,14 +1399,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Test a URL before adding as source
-  fastify.post<{
-    Body: {
-      url: string;
-      prompt?: string;
-      requiresBrowser?: boolean;
-      schema?: object;
-    };
-  }>("/api/crawler/test", async (request, reply) => {
+  fastify.post<{ Body: schemas.TestCrawlerSourceRequest }>(
+    "/api/crawler/test",
+    { preHandler: validateBody(schemas.TestCrawlerSourceSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1546,14 +1544,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Create competitor
-  fastify.post<{
-    Body: {
-      name: string;
-      domain: string;
-      description?: string;
-      industry?: string;
-    };
-  }>("/api/competitors", async (request, reply) => {
+  fastify.post<{ Body: schemas.CreateCompetitorRequest }>(
+    "/api/competitors",
+    { preHandler: validateBody(schemas.CreateCompetitorSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1578,15 +1572,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Update competitor
-  fastify.put<{
-    Params: { id: string };
-    Body: Partial<{
-      name: string;
-      domain: string;
-      description: string;
-      industry: string;
-    }>;
-  }>("/api/competitors/:id", async (request, reply) => {
+  fastify.put<{ Params: { id: string }; Body: schemas.UpdateCompetitorRequest }>(
+    "/api/competitors/:id",
+    { preHandler: validateBody(schemas.UpdateCompetitorSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1634,20 +1623,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Start competitor crawl
-  fastify.post<{
-    Params: { id: string };
-    Body: {
-      maxDepth?: number;
-      maxPages?: number;
-      crawlSitemap?: boolean;
-      respectRobotsTxt?: boolean;
-      requestsPerMinute?: number;
-      maxConcurrency?: number;
-      proxyUrls?: string[];
-      delayMin?: number;
-      delayMax?: number;
-    };
-  }>("/api/competitors/:id/crawl", async (request, reply) => {
+  fastify.post<{ Params: { id: string }; Body: schemas.StartCompetitorCrawlRequest }>(
+    "/api/competitors/:id/crawl",
+    { preHandler: validateBody(schemas.StartCompetitorCrawlSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1749,10 +1728,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Analyze competitor (AI)
-  fastify.post<{
-    Params: { id: string };
-    Body: { analysisType?: string };
-  }>("/api/competitors/:id/analyze", async (request, reply) => {
+  fastify.post<{ Params: { id: string }; Body: schemas.AnalyzeCompetitorRequest }>(
+    "/api/competitors/:id/analyze",
+    { preHandler: validateBody(schemas.AnalyzeCompetitorSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
@@ -1815,14 +1794,10 @@ export async function startServer(): Promise<void> {
   });
 
   // Generate competitor report
-  fastify.post<{
-    Body: {
-      competitorIds: string[];
-      reportType: string;
-      format: string;
-      title?: string;
-    };
-  }>("/api/competitors/reports", async (request, reply) => {
+  fastify.post<{ Body: schemas.GenerateCompetitorReportRequest }>(
+    "/api/competitors/reports",
+    { preHandler: validateBody(schemas.GenerateCompetitorReportSchema) },
+    async (request, reply) => {
     const deps = stateStore.getRepositoryDeps();
     if (!deps) {
       return reply.status(500).send({ error: "Database not initialized" });
