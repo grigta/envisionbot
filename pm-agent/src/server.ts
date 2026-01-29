@@ -283,6 +283,93 @@ export async function startServer(): Promise<void> {
   });
 
   // ============================================
+  // NOTIFICATION PREFERENCES API
+  // ============================================
+
+  // Get notification preferences for current user
+  fastify.get("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const repo = new NotificationPreferencesRepository(deps);
+
+      // Get preferences for this user's access code (or default)
+      const prefs = await repo.getByAccessCode(user?.sub);
+      return prefs;
+    } catch (error) {
+      console.error("Error fetching notification preferences:", error);
+      return reply.status(500).send({ error: "Failed to fetch preferences" });
+    }
+  });
+
+  // Update notification preferences for current user
+  fastify.put<{
+    Body: {
+      emailEnabled?: boolean;
+      emailAddress?: string;
+      telegramEnabled?: boolean;
+      telegramChatId?: string;
+      quietHoursEnabled?: boolean;
+      quietHoursStart?: string;
+      quietHoursEnd?: string;
+      quietHoursTimezone?: string;
+      enabledNotificationTypes?: string[];
+      minimumPriority?: "low" | "medium" | "high" | "critical";
+    };
+  }>("/api/user/notification-preferences", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const repo = new NotificationPreferencesRepository(deps);
+
+      const prefs = await repo.update(user?.sub, request.body);
+      return prefs;
+    } catch (error) {
+      console.error("Error updating notification preferences:", error);
+      return reply.status(500).send({ error: "Failed to update preferences" });
+    }
+  });
+
+  // Check if currently in quiet hours
+  fastify.get("/api/user/notification-preferences/quiet-hours-check", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    try {
+      const user = (request as any).user;
+      const { NotificationPreferencesRepository } = await import(
+        "./repositories/notification-preferences.repository.js"
+      );
+      const { NotificationService } = await import("./services/notification.service.js");
+
+      const repo = new NotificationPreferencesRepository(deps);
+      const prefs = await repo.getByAccessCode(user?.sub);
+      const check = NotificationService.checkQuietHours(prefs);
+
+      return check;
+    } catch (error) {
+      console.error("Error checking quiet hours:", error);
+      return reply.status(500).send({ error: "Failed to check quiet hours" });
+    }
+  });
+
+  // ============================================
   // GITHUB WEBHOOK ENDPOINT
   // ============================================
 
@@ -827,6 +914,158 @@ export async function startServer(): Promise<void> {
 
     return reply.send(result);
   });
+
+  // ============================================
+  // TASK DEPENDENCIES API
+  // ============================================
+
+  // Add a dependency to a task
+  fastify.post<{ Params: { id: string }; Body: schemas.AddTaskDependencyRequest }>(
+    "/api/tasks/:id/dependencies",
+    { preHandler: validateBody(schemas.AddTaskDependencySchema) },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { dependsOnTaskId, type } = request.body;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const result = await taskRepo.addDependency(id, dependsOnTaskId, type);
+
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+
+      broadcast({
+        type: "task_updated",
+        timestamp: Date.now(),
+        data: { taskId: id, action: "dependency_added" },
+      });
+
+      return reply.send({ success: true });
+    }
+  );
+
+  // Remove a dependency from a task
+  fastify.delete<{ Params: { id: string; dependsOnTaskId: string } }>(
+    "/api/tasks/:id/dependencies/:dependsOnTaskId",
+    async (request, reply) => {
+      const { id, dependsOnTaskId } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const success = await taskRepo.removeDependency(id, dependsOnTaskId);
+
+      if (!success) {
+        return reply.status(404).send({ error: "Dependency not found" });
+      }
+
+      broadcast({
+        type: "task_updated",
+        timestamp: Date.now(),
+        data: { taskId: id, action: "dependency_removed" },
+      });
+
+      return reply.send({ success: true });
+    }
+  );
+
+  // Get dependencies for a task (tasks this task depends on)
+  fastify.get<{ Params: { id: string } }>(
+    "/api/tasks/:id/dependencies",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const dependencies = await taskRepo.getDependencies(id);
+      return reply.send(dependencies);
+    }
+  );
+
+  // Get dependents for a task (tasks that depend on this task)
+  fastify.get<{ Params: { id: string } }>(
+    "/api/tasks/:id/dependents",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const dependents = await taskRepo.getDependents(id);
+      return reply.send(dependents);
+    }
+  );
+
+  // Get task with full dependency information
+  fastify.get<{ Params: { id: string } }>(
+    "/api/tasks/:id/with-dependencies",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const task = await taskRepo.getTaskWithDependencies(id);
+
+      if (!task) {
+        return reply.status(404).send({ error: "Task not found" });
+      }
+
+      return reply.send(task);
+    }
+  );
+
+  // Check if dependencies are met for a task
+  fastify.get<{ Params: { id: string } }>(
+    "/api/tasks/:id/dependencies-met",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const taskRepo = new TaskRepository(deps);
+
+      const task = await taskRepo.getById(id);
+      if (!task) {
+        return reply.status(404).send({ error: "Task not found" });
+      }
+
+      const met = await taskRepo.areDependenciesMet(id);
+      return reply.send({ dependenciesMet: met });
+    }
+  );
 
   // Pending Actions (Approvals)
   fastify.get("/api/actions/pending", async () => {

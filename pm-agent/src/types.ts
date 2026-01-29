@@ -42,6 +42,10 @@ export interface Task {
   githubIssueState?: "open" | "closed";
   githubIssueCreatedAt?: number;
   githubIssueSyncedAt?: number;
+  // Task Dependencies (populated when queried with dependencies)
+  dependsOn?: Task[]; // Tasks that this task depends on
+  blockedBy?: Task[]; // Tasks that block this task (same as dependsOn)
+  blocks?: Task[]; // Tasks that this task blocks
 }
 
 export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";
@@ -49,6 +53,14 @@ export type Priority = "critical" | "high" | "medium" | "low";
 export type TaskStatus = "pending" | "approved" | "rejected" | "in_progress" | "completed" | "failed";
 export type KanbanStatus = "not_started" | "backlog" | "in_progress" | "review" | "done";
 export type GeneratedBy = "health_check" | "deep_analysis" | "manual" | "chat" | "plan_sync";
+
+// Task Dependencies
+export interface TaskDependency {
+  taskId: string;
+  dependsOnTaskId: string;
+  type: "depends_on" | "blocks";
+  createdAt: number;
+}
 
 export interface SuggestedAction {
   type: "create_issue" | "comment_issue" | "create_pr" | "merge_pr" | "close_issue" | "notify" | "custom";
@@ -375,4 +387,35 @@ export interface WebhookProcessingResult {
   message: string;
   taskUpdated?: boolean;
   taskId?: string;
+}
+
+// Notification Preferences
+export type NotificationPriority = "low" | "medium" | "high" | "critical";
+export type NotificationType = "task" | "alert" | "report" | "system" | "idea" | "chat";
+
+export interface NotificationPreferences {
+  id: string;
+  accessCodeId?: string; // null = global default
+  // Email
+  emailEnabled: boolean;
+  emailAddress?: string;
+  // Telegram
+  telegramEnabled: boolean;
+  telegramChatId?: string;
+  // Quiet hours
+  quietHoursEnabled: boolean;
+  quietHoursStart?: string; // "HH:MM"
+  quietHoursEnd?: string; // "HH:MM"
+  quietHoursTimezone?: string;
+  // Filters
+  enabledNotificationTypes: NotificationType[];
+  minimumPriority: NotificationPriority;
+  // Metadata
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface QuietHoursCheck {
+  isQuietTime: boolean;
+  reason?: string;
 }

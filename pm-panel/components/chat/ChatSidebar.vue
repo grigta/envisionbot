@@ -1,5 +1,11 @@
 <template>
-  <div class="w-60 bg-[#191919] border-r border-[#2d2d2d] flex flex-col fixed left-60 top-0 h-screen z-20">
+  <div
+    class="w-60 bg-[#191919] border-r border-[#2d2d2d] flex flex-col fixed top-0 h-screen z-30 transition-transform duration-300"
+    :class="[
+      isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+      'left-0 lg:left-60'
+    ]"
+  >
     <!-- Header (matches main nav header height) -->
     <div class="p-4 border-b border-[#2d2d2d] h-[57px] flex items-center">
       <button @click="$emit('new-chat')" class="btn btn-primary w-full text-sm">
@@ -82,6 +88,7 @@ const props = defineProps<{
   sessions: ChatSession[];
   currentSessionId: string | null;
   loading?: boolean;
+  isOpen?: boolean;
 }>();
 
 const emit = defineEmits<{

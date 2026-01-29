@@ -226,26 +226,26 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     setSchemaVersion(sqlite, 6, "Update kanban_status constraint to support all statuses");
   }
 
-  // Migration v6 -> v7: Add project-level health check and alert settings
+  // Migration v6 -> v7: Add task_dependencies table
   if (fromVersion < 7) {
-    console.log("Running migration v7: Add project-level settings");
+    console.log("Running migration v7: Add task_dependencies table");
 
-    const columns = [
-      "ALTER TABLE projects ADD COLUMN health_check_interval_hours INTEGER CHECK (health_check_interval_hours IS NULL OR health_check_interval_hours > 0)",
-      "ALTER TABLE projects ADD COLUMN alert_threshold_health_score INTEGER CHECK (alert_threshold_health_score IS NULL OR (alert_threshold_health_score >= 0 AND alert_threshold_health_score <= 100))",
-      "ALTER TABLE projects ADD COLUMN alert_threshold_open_issues INTEGER CHECK (alert_threshold_open_issues IS NULL OR alert_threshold_open_issues >= 0)",
-      "ALTER TABLE projects ADD COLUMN alert_on_ci_failure INTEGER DEFAULT 1 CHECK (alert_on_ci_failure IN (0, 1))"
-    ];
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS task_dependencies (
+        task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        depends_on_task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        type TEXT NOT NULL DEFAULT 'depends_on' CHECK (type IN ('depends_on', 'blocks')),
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000),
+        PRIMARY KEY (task_id, depends_on_task_id),
+        CHECK (task_id != depends_on_task_id)
+      );
 
-    for (const sql of columns) {
-      try {
-        sqlite.exec(sql);
-      } catch (error) {
-        // Column already exists, skip
-      }
-    }
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_dependencies_type ON task_dependencies(type);
+    `);
 
-    setSchemaVersion(sqlite, 7, "Add project-level health check and alert settings");
+    setSchemaVersion(sqlite, 7, "Add task_dependencies table");
   }
 }
 

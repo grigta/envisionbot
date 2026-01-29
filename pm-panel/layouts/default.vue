@@ -1,7 +1,18 @@
 <template>
   <div class="min-h-screen flex" style="background-color: var(--color-bg-primary); color: var(--color-text-primary);">
+    <!-- Mobile Menu Backdrop -->
+    <div
+      v-if="mobileMenuOpen"
+      @click="mobileMenuOpen = false"
+      class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+    />
+
     <!-- Sidebar -->
-    <aside class="w-60 border-r flex flex-col fixed h-screen" style="background-color: var(--color-bg-primary); border-color: var(--color-border);">
+    <aside
+      class="w-60 border-r flex flex-col fixed h-screen z-50 transition-transform duration-300"
+      :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+      style="background-color: var(--color-bg-primary); border-color: var(--color-border);"
+    >
       <!-- Logo -->
       <div class="p-4 border-b h-[57px] flex items-center" style="border-color: var(--color-border);">
         <div class="flex items-center gap-2 w-full">
@@ -21,6 +32,7 @@
           :to="item.path"
           class="nav-item"
           :class="{ 'nav-item-active': isActive(item.path) }"
+          @click="mobileMenuOpen = false"
         >
           <UIcon :name="item.icon" class="w-4 h-4 opacity-60" />
           <span>{{ item.label }}</span>
@@ -83,19 +95,30 @@
     </aside>
 
     <!-- Main content -->
-    <main class="flex-1 ml-60">
+    <main class="flex-1 lg:ml-60">
       <!-- Top bar -->
       <header class="sticky top-0 z-10 backdrop-blur-sm border-b h-[57px]" style="background-color: rgba(var(--color-bg-primary-rgb, 25, 25, 25), 0.8); border-color: var(--color-border);">
-        <div class="px-8 h-full flex items-center justify-between">
-          <!-- Breadcrumb -->
-          <div class="flex items-center gap-2 text-sm">
-            <NuxtLink to="/" class="transition-colors" style="color: var(--color-text-muted);">
-              Home
-            </NuxtLink>
-            <template v-if="currentPage">
-              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3" style="color: var(--color-text-muted);" />
-              <span style="color: var(--color-text-primary);">{{ currentPage }}</span>
-            </template>
+        <div class="px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between">
+          <!-- Mobile Menu Button + Breadcrumb -->
+          <div class="flex items-center gap-3">
+            <!-- Hamburger Menu (Mobile Only) -->
+            <button
+              @click="mobileMenuOpen = !mobileMenuOpen"
+              class="lg:hidden p-2 rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
+            >
+              <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+            </button>
+
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm">
+              <NuxtLink to="/" class="transition-colors hidden sm:inline" style="color: var(--color-text-muted);">
+                Home
+              </NuxtLink>
+              <template v-if="currentPage">
+                <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 hidden sm:inline" style="color: var(--color-text-muted);" />
+                <span style="color: var(--color-text-primary);">{{ currentPage }}</span>
+              </template>
+            </div>
           </div>
 
           <!-- Actions -->
@@ -108,15 +131,15 @@
               class="search-button flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors"
             >
               <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
-              <span>Search...</span>
-              <kbd class="text-[10px] px-1.5 py-0.5 rounded" style="background-color: var(--color-bg-active);">⌘K</kbd>
+              <span class="hidden sm:inline">Search...</span>
+              <kbd class="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded" style="background-color: var(--color-bg-active);">⌘K</kbd>
             </button>
           </div>
         </div>
       </header>
 
       <!-- Page content -->
-      <div class="p-8">
+      <div class="p-4 sm:p-6 lg:p-8">
         <slot />
       </div>
     </main>
@@ -170,6 +193,14 @@ async function handleLogout() {
   await logout();
   navigateTo("/login");
 }
+
+// Mobile menu state
+const mobileMenuOpen = ref(false);
+
+// Close mobile menu on route change
+watch(() => route.path, () => {
+  mobileMenuOpen.value = false;
+});
 
 const activeIdeasCount = ref(0);
 const recentEventsCount = computed(() => {
