@@ -158,6 +158,11 @@ async function fetchSessions() {
     sessions.value = await api.getChatHistory(50);
   } catch (error) {
     console.error("Failed to fetch sessions:", error);
+    toast.add({
+      title: "Error",
+      description: "Failed to load chat history",
+      color: "red",
+    });
   }
 }
 
@@ -253,37 +258,51 @@ async function deleteSession(sessionId: string) {
 watch(lastEvent, (event) => {
   if (!event || !currentChatId.value) return;
 
-  const data = event.data as { chatId?: string; step?: AgentStep; response?: string; success?: boolean; error?: string };
+  try {
+    const data = event.data as { chatId?: string; step?: AgentStep; response?: string; success?: boolean; error?: string };
 
-  // Only process events for our current chat
-  if (data.chatId !== currentChatId.value) return;
+    // Only process events for our current chat
+    if (data.chatId !== currentChatId.value) return;
 
-  if (event.type === "chat_step" && data.step) {
-    activeSteps.value.push(data.step);
-    scrollToBottom();
-  }
-
-  if (event.type === "chat_complete") {
-    // Add the final assistant message
-    if (data.response) {
-      messages.value.push({
-        id: `msg-${Date.now()}-assistant`,
-        role: "assistant",
-        content: data.response,
-        timestamp: Date.now(),
-        steps: [...activeSteps.value],
-        success: data.success,
-        error: data.error,
-      });
+    if (event.type === "chat_step" && data.step) {
+      activeSteps.value.push(data.step);
+      scrollToBottom();
     }
 
+    if (event.type === "chat_complete") {
+      // Add the final assistant message
+      if (data.response || data.error) {
+        messages.value.push({
+          id: `msg-${Date.now()}-assistant`,
+          role: "assistant",
+          content: data.response || "",
+          timestamp: Date.now(),
+          steps: [...activeSteps.value],
+          success: data.success,
+          error: data.error,
+        });
+      }
+
+      isProcessing.value = false;
+      activeSteps.value = [];
+      currentChatId.value = null;
+      scrollToBottom();
+
+      // Refresh sessions to update the title
+      fetchSessions().catch((err) => {
+        console.error("Failed to refresh sessions after chat complete:", err);
+      });
+    }
+  } catch (error) {
+    console.error("Error processing WebSocket event:", error);
+    // Reset processing state to prevent UI freeze
     isProcessing.value = false;
     activeSteps.value = [];
-    currentChatId.value = null;
-    scrollToBottom();
-
-    // Refresh sessions to update the title
-    fetchSessions();
+    toast.add({
+      title: "Error",
+      description: "Failed to process chat update",
+      color: "red",
+    });
   }
 });
 
@@ -306,10 +325,27 @@ async function sendMessage() {
 
   scrollToBottom();
 
+  // Set a timeout to reset processing state if response takes too long
+  const timeoutId = setTimeout(() => {
+    if (isProcessing.value) {
+      console.warn("Chat response timed out");
+      isProcessing.value = false;
+      activeSteps.value = [];
+      currentChatId.value = null;
+      toast.add({
+        title: "Timeout",
+        description: "Response is taking longer than expected. Please try again.",
+        color: "yellow",
+      });
+    }
+  }, 310000); // 310 seconds (slightly longer than backend timeout of 300s)
+
   try {
     const result = await api.sendChatMessage(messageContent, {
       sessionId: currentSessionId.value || undefined,
     });
+
+    clearTimeout(timeoutId);
     currentChatId.value = result.chatId;
 
     // Update session ID if this is a new session
@@ -334,19 +370,34 @@ async function sendMessage() {
         success: result.success,
       });
       isProcessing.value = false;
-      fetchSessions();
+      fetchSessions().catch((err) => {
+        console.error("Failed to refresh sessions:", err);
+      });
     }
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error("Failed to send message:", error);
+
+    const errorMessage = error instanceof Error ? error.message : "Failed to send message";
+
     messages.value.push({
       id: `msg-${Date.now()}-assistant`,
       role: "assistant",
       content: "",
       timestamp: Date.now(),
       success: false,
-      error: error instanceof Error ? error.message : "Failed to send message",
+      error: errorMessage,
     });
+
     isProcessing.value = false;
+    activeSteps.value = [];
+    currentChatId.value = null;
+
+    toast.add({
+      title: "Error",
+      description: errorMessage,
+      color: "red",
+    });
   }
 }
 
@@ -405,6 +456,11 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error("Failed to load chat:", error);
+    toast.add({
+      title: "Error",
+      description: "Failed to load chat. Please refresh the page.",
+      color: "red",
+    });
   } finally {
     loadingSessions.value = false;
   }

@@ -24,26 +24,49 @@ export function useApi() {
       headers["Authorization"] = `Bearer ${token.value}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    // Create an AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 320000); // 320 seconds timeout
 
-    // Handle 401 - token expired or invalid
-    if (response.status === 401) {
-      if (import.meta.client) {
-        clearAuth();
-        navigateTo("/login");
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Handle 401 - token expired or invalid
+      if (response.status === 401) {
+        if (import.meta.client) {
+          clearAuth();
+          navigateTo("/login");
+        }
+        throw new Error("Authentication required");
       }
-      throw new Error("Authentication required");
-    }
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || `HTTP ${response.status}`);
+      }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // Handle abort/timeout errors
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("Request timed out. Please try again.");
+      }
+
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new Error("Network error. Please check your connection.");
+      }
+
+      throw error;
+    }
   }
 
   // Projects

@@ -20,7 +20,9 @@ export function useWebSocket() {
 
   let ws: WebSocket | null = null;
   let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  let reconnectAttempts = 0;
   const maxEvents = 100;
+  const maxReconnectAttempts = 10;
 
   function connect() {
     if (ws?.readyState === WebSocket.OPEN) return;
@@ -30,6 +32,7 @@ export function useWebSocket() {
 
       ws.onopen = () => {
         connected.value = true;
+        reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         console.log("WebSocket connected");
       };
 
@@ -81,10 +84,23 @@ export function useWebSocket() {
 
   function scheduleReconnect() {
     if (reconnectTimeout) return;
+
+    // Stop reconnecting after max attempts
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      console.error("Max WebSocket reconnection attempts reached");
+      return;
+    }
+
+    reconnectAttempts++;
+
+    // Exponential backoff: 3s, 6s, 12s, ... up to 60s
+    const delay = Math.min(3000 * Math.pow(2, reconnectAttempts - 1), 60000);
+
     reconnectTimeout = setTimeout(() => {
       reconnectTimeout = null;
+      console.log(`WebSocket reconnection attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
       connect();
-    }, 3000);
+    }, delay);
   }
 
   // Filter events by type
