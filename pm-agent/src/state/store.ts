@@ -317,7 +317,7 @@ class Store {
   // Tasks
   // ==========================================
 
-  getTasks(filter?: { projectId?: string; status?: Task["status"] }): Task[] {
+  getTasks(filter?: { projectId?: string; status?: Task["status"]; limit?: number; offset?: number }): Task[] {
     if (!this._tasks || !this.db) return [];
 
     let sql = "SELECT * FROM tasks WHERE 1=1";
@@ -333,6 +333,16 @@ class Store {
     }
 
     sql += " ORDER BY CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 WHEN 'low' THEN 4 END, generated_at DESC";
+
+    // Add pagination
+    if (filter?.limit !== undefined) {
+      sql += " LIMIT ?";
+      params.push(filter.limit);
+    }
+    if (filter?.offset !== undefined) {
+      sql += " OFFSET ?";
+      params.push(filter.offset);
+    }
 
     const stmt = this.db.sqlite.prepare(sql);
     const rows = stmt.all(...params) as Array<{
@@ -672,16 +682,16 @@ class Store {
   // Reports
   // ==========================================
 
-  getReports(limit = 20): AnalysisReport[] {
+  getReports(limit = 20, offset = 0): AnalysisReport[] {
     if (!this._reports || !this.db) return [];
 
     const stmt = this.db.sqlite.prepare(`
       SELECT * FROM analysis_reports
       ORDER BY started_at DESC
-      LIMIT ?
+      LIMIT ? OFFSET ?
     `);
 
-    const rows = stmt.all(limit) as Array<{
+    const rows = stmt.all(limit, offset) as Array<{
       id: string;
       type: AnalysisReport["type"];
       project_ids: string;
@@ -777,7 +787,7 @@ class Store {
   // Ideas
   // ==========================================
 
-  getIdeas(filter?: { status?: Idea["status"] }): Idea[] {
+  getIdeas(filter?: { status?: Idea["status"]; limit?: number; offset?: number }): Idea[] {
     if (!this._ideas || !this.db) return [];
 
     let sql = "SELECT * FROM ideas";
@@ -789,6 +799,16 @@ class Store {
     }
 
     sql += " ORDER BY created_at DESC";
+
+    // Add pagination
+    if (filter?.limit !== undefined) {
+      sql += " LIMIT ?";
+      params.push(filter.limit);
+    }
+    if (filter?.offset !== undefined) {
+      sql += " OFFSET ?";
+      params.push(filter.offset);
+    }
 
     const stmt = this.db.sqlite.prepare(sql);
     const rows = stmt.all(...params) as Array<{

@@ -449,11 +449,13 @@ export async function startServer(): Promise<void> {
   );
 
   // Tasks
-  fastify.get<{ Querystring: { projectId?: string; status?: string } }>("/api/tasks", async (request) => {
-    const { projectId, status } = request.query;
+  fastify.get<{ Querystring: { projectId?: string; status?: string; limit?: number; offset?: number } }>("/api/tasks", async (request) => {
+    const { projectId, status, limit, offset } = request.query;
     return stateStore.getTasks({
       projectId,
       status: status as "pending" | undefined,
+      limit,
+      offset,
     });
   });
 
@@ -654,8 +656,9 @@ export async function startServer(): Promise<void> {
   );
 
   // Reports
-  fastify.get("/api/reports", async () => {
-    return stateStore.getReports();
+  fastify.get<{ Querystring: { limit?: number; offset?: number } }>("/api/reports", async (request) => {
+    const { limit, offset } = request.query;
+    return stateStore.getReports(limit, offset);
   });
 
   fastify.get<{ Params: { id: string } }>("/api/reports/:id", async (request, reply) => {
@@ -705,10 +708,12 @@ export async function startServer(): Promise<void> {
   });
 
   // Ideas - CRUD
-  fastify.get<{ Querystring: { status?: string } }>("/api/ideas", async (request) => {
-    const { status } = request.query;
+  fastify.get<{ Querystring: { status?: string; limit?: number; offset?: number } }>("/api/ideas", async (request) => {
+    const { status, limit, offset } = request.query;
     return stateStore.getIdeas({
       status: status as Idea["status"] | undefined,
+      limit,
+      offset,
     });
   });
 
