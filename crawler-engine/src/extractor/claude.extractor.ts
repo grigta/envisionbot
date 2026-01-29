@@ -4,6 +4,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { Extractor, ExtractionConfig, ExtractionResult } from '../types.js';
+import { withRetry, type RetryOptions } from '../utils/retry.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-20250514';
 const DEFAULT_MAX_TOKENS = 4096;
@@ -12,11 +13,14 @@ export interface ClaudeExtractorOptions {
   apiKey?: string;
   authToken?: string;
   defaultModel?: string;
+  /** Retry configuration for API calls */
+  retry?: RetryOptions;
 }
 
 export class ClaudeExtractor implements Extractor {
   private client: Anthropic;
   private defaultModel: string;
+  private retryOptions: RetryOptions;
 
   constructor(options: ClaudeExtractorOptions) {
     // Support both apiKey and authToken (OAuth)
@@ -28,6 +32,13 @@ export class ClaudeExtractor implements Extractor {
       throw new Error('Either apiKey or authToken must be provided');
     }
     this.defaultModel = options.defaultModel || DEFAULT_MODEL;
+    this.retryOptions = options.retry || {
+      maxRetries: 3,
+      initialDelay: 1000,
+      onRetry: (attempt, error, delay) => {
+        console.log(`[ClaudeExtractor] Retry attempt ${attempt} after ${delay}ms due to error:`, error);
+      },
+    };
   }
 
   /**
@@ -38,18 +49,22 @@ export class ClaudeExtractor implements Extractor {
     const model = config.model || this.defaultModel;
     const maxTokens = config.maxTokens || DEFAULT_MAX_TOKENS;
 
-    const response = await this.client.messages.create({
-      model,
-      max_tokens: maxTokens,
-      temperature: config.temperature ?? 0.1,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Контент для анализа:\n\n${content}`,
-        },
-      ],
-    });
+    // Wrap API call in retry logic
+    const response = await withRetry(
+      async () => await this.client.messages.create({
+        model,
+        max_tokens: maxTokens,
+        temperature: config.temperature ?? 0.1,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: `Контент для анализа:\n\n${content}`,
+          },
+        ],
+      }),
+      this.retryOptions
+    );
 
     const textContent = response.content[0];
     if (textContent.type !== 'text') {
