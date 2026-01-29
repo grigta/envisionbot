@@ -1,6 +1,7 @@
 /**
  * Claude CLI Integration
  * Uses Claude Code CLI with --print for AI analysis via Max subscription
+ * Includes retry logic and improved error handling
  *
  * Key trick: Remove ANTHROPIC_API_KEY from env to force CLI to use OAuth token
  */
@@ -11,11 +12,60 @@ export interface ClaudeCliOptions {
   model?: string;
   maxTokens?: number;
   timeout?: number;
+  maxRetries?: number;
+  retryDelay?: number;
 }
 
 export interface ClaudeCliResult {
   content: string;
   tokensUsed: number;
+}
+
+/**
+ * Custom error class for Claude CLI failures
+ */
+export class ClaudeCliError extends Error {
+  constructor(
+    message: string,
+    public exitCode?: number,
+    public stderr?: string,
+    public isTimeout = false,
+    public isRetryable = false
+  ) {
+    super(message);
+    this.name = 'ClaudeCliError';
+  }
+}
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Determine if an error is retryable
+ */
+function isRetryableError(error: ClaudeCliError | Error | string): boolean {
+  const errorMessage = typeof error === 'string' ? error : error.message;
+  const lowerMessage = errorMessage.toLowerCase();
+
+  const retryablePatterns = [
+    'network error',
+    'connection refused',
+    'timeout',
+    'econnrefused',
+    'enotfound',
+    'etimedout',
+    'socket hang up',
+    'rate limit',
+    '503',
+    '502',
+    '500',
+  ];
+
+  return retryablePatterns.some((pattern) => lowerMessage.includes(pattern));
 }
 
 /**
@@ -32,13 +82,49 @@ export function isClaudeCliAvailable(): boolean {
 
 /**
  * Run Claude CLI with --print flag using Max subscription
+ * Includes retry logic with exponential backoff for transient failures
  */
 export async function runClaudeCli(
   prompt: string,
   options: ClaudeCliOptions = {}
 ): Promise<ClaudeCliResult> {
-  const { model, timeout = 120000 } = options;
+  const { model, timeout = 120000, maxRetries = 3, retryDelay = 1000 } = options;
 
+  let lastError: ClaudeCliError | Error | undefined;
+  let delay = retryDelay;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await runClaudeCliInternal(prompt, model, timeout);
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      const isLastAttempt = attempt === maxRetries;
+      const shouldRetry = error instanceof ClaudeCliError ? error.isRetryable : isRetryableError(lastError);
+
+      if (isLastAttempt || !shouldRetry) {
+        console.error(`[ClaudeCLI] Failed after ${attempt} attempt(s):`, error);
+        throw error;
+      }
+
+      console.warn(`[ClaudeCLI] Attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms...`, error);
+      await sleep(delay);
+      delay *= 2; // Exponential backoff
+    }
+  }
+
+  throw lastError || new ClaudeCliError('Unknown error');
+}
+
+/**
+ * Internal function to run Claude CLI (used by retry logic)
+ */
+function runClaudeCliInternal(
+  prompt: string,
+  model: string | undefined,
+  timeout: number
+): Promise<ClaudeCliResult> {
   return new Promise((resolve, reject) => {
     // Build environment without ANTHROPIC_API_KEY to force subscription
     const env = { ...process.env };
@@ -59,6 +145,7 @@ export async function runClaudeCli(
 
     let stdout = '';
     let stderr = '';
+    let isResolved = false;
 
     child.stdout.on('data', (data) => {
       stdout += data.toString();
@@ -69,15 +156,48 @@ export async function runClaudeCli(
     });
 
     const timeoutId = setTimeout(() => {
+      if (isResolved) return;
+      isResolved = true;
+
+      console.warn(`[ClaudeCLI] Timeout after ${timeout}ms, attempting graceful shutdown`);
       child.kill('SIGTERM');
-      reject(new Error(`Claude CLI timed out after ${timeout}ms`));
+
+      // Give the process 5 seconds to clean up before forcing kill
+      setTimeout(() => {
+        if (!child.killed) {
+          console.warn('[ClaudeCLI] Process did not terminate gracefully, sending SIGKILL');
+          child.kill('SIGKILL');
+        }
+      }, 5000);
+
+      reject(
+        new ClaudeCliError(
+          `Claude CLI timed out after ${timeout}ms`,
+          undefined,
+          stderr,
+          true,
+          true // Timeouts are retryable
+        )
+      );
     }, timeout);
 
     child.on('close', (code) => {
       clearTimeout(timeoutId);
+      if (isResolved) return;
+      isResolved = true;
 
       if (code !== 0) {
-        reject(new Error(`Claude CLI exited with code ${code}: ${stderr}`));
+        const errorMessage = stderr || stdout || 'Unknown error';
+        const isRetryable = isRetryableError(errorMessage);
+        reject(
+          new ClaudeCliError(
+            `Claude CLI exited with code ${code}: ${errorMessage}`,
+            code,
+            stderr,
+            false,
+            isRetryable
+          )
+        );
         return;
       }
 
@@ -92,7 +212,19 @@ export async function runClaudeCli(
 
     child.on('error', (error) => {
       clearTimeout(timeoutId);
-      reject(new Error(`Claude CLI error: ${error.message}`));
+      if (isResolved) return;
+      isResolved = true;
+
+      console.error('[ClaudeCLI] Process error:', error);
+      reject(
+        new ClaudeCliError(
+          `Claude CLI error: ${error.message}`,
+          undefined,
+          undefined,
+          false,
+          true // Spawn errors are often retryable
+        )
+      );
     });
   });
 }

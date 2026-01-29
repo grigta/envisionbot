@@ -6,6 +6,110 @@ export interface ClaudeCodeResult {
   success: boolean;
   output: string;
   exitCode?: number;
+  error?: string;
+  attemptsMade?: number;
+}
+
+export class ClaudeCodeError extends Error {
+  constructor(
+    message: string,
+    public exitCode?: number,
+    public stderr?: string,
+    public stdout?: string,
+    public isTimeout = false,
+    public isRetryable = false
+  ) {
+    super(message);
+    this.name = "ClaudeCodeError";
+  }
+}
+
+/**
+ * Retry configuration for Claude Code operations
+ */
+export interface RetryConfig {
+  maxAttempts: number;
+  initialDelay: number;
+  maxDelay: number;
+  backoffMultiplier: number;
+}
+
+const DEFAULT_RETRY_CONFIG: RetryConfig = {
+  maxAttempts: 3,
+  initialDelay: 1000,
+  maxDelay: 10000,
+  backoffMultiplier: 2,
+};
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Determine if an error is retryable
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof ClaudeCodeError) {
+    return error.isRetryable;
+  }
+
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  // Network and transient errors are retryable
+  const retryablePatterns = [
+    "network error",
+    "connection refused",
+    "timeout",
+    "econnrefused",
+    "enotfound",
+    "etimedout",
+    "socket hang up",
+    "rate limit",
+    "503",
+    "502",
+    "500",
+  ];
+
+  return retryablePatterns.some((pattern) => errorMessage.includes(pattern));
+}
+
+/**
+ * Execute a function with retry logic and exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  config: Partial<RetryConfig> = {},
+  context = "Operation"
+): Promise<T> {
+  const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...config };
+  let lastError: unknown;
+  let delay = retryConfig.initialDelay;
+
+  for (let attempt = 1; attempt <= retryConfig.maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      const isLastAttempt = attempt === retryConfig.maxAttempts;
+      const shouldRetry = isRetryableError(error);
+
+      if (isLastAttempt || !shouldRetry) {
+        console.error(`[${context}] Failed after ${attempt} attempt(s):`, error);
+        throw error;
+      }
+
+      console.warn(`[${context}] Attempt ${attempt}/${retryConfig.maxAttempts} failed, retrying in ${delay}ms...`, error);
+      await sleep(delay);
+
+      delay = Math.min(delay * retryConfig.backoffMultiplier, retryConfig.maxDelay);
+    }
+  }
+
+  throw lastError;
 }
 
 // Stream event types from Claude Code CLI
@@ -33,6 +137,7 @@ export type StreamCallback = (event: AgentStep) => void;
  * Run Claude Code CLI with a prompt
  * Uses the --print flag for non-interactive execution
  * Passes prompt via stdin to avoid command line length issues
+ * Includes retry logic with exponential backoff for transient failures
  */
 export async function runClaudeCode(
   workDir: string,
@@ -40,58 +145,103 @@ export async function runClaudeCode(
   options?: {
     timeout?: number;
     allowEdits?: boolean;
+    retryConfig?: Partial<RetryConfig>;
   }
 ): Promise<ClaudeCodeResult> {
   const timeout = options?.timeout || 600000; // 10 minutes default
+  const retryConfig = options?.retryConfig || {};
 
-  try {
-    // Build the command arguments
-    // Using --print for non-interactive mode
-    // Prompt will be passed via stdin
-    const args = ["--print"];
+  return withRetry(
+    async () => {
+      try {
+        // Build the command arguments
+        // Using --print for non-interactive mode
+        // Prompt will be passed via stdin
+        const args = ["--print"];
 
-    // If we want to allow edits (file modifications), use --dangerously-skip-permissions
-    if (options?.allowEdits !== false) {
-      args.push("--dangerously-skip-permissions");
-    }
+        // If we want to allow edits (file modifications), use --dangerously-skip-permissions
+        if (options?.allowEdits !== false) {
+          args.push("--dangerously-skip-permissions");
+        }
 
-    console.log(`Running Claude Code in ${workDir} with timeout ${timeout}ms`);
+        console.log(`[ClaudeCode] Running in ${workDir} with timeout ${timeout}ms`);
 
-    const result = await execa("claude", args, {
-      cwd: workDir,
-      timeout,
-      input: prompt, // Pass prompt via stdin
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    });
+        const result = await execa("claude", args, {
+          cwd: workDir,
+          timeout,
+          input: prompt, // Pass prompt via stdin
+          env: {
+            ...process.env,
+            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+            CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+          },
+        });
 
-    console.log("Claude Code completed successfully");
+        console.log("[ClaudeCode] Completed successfully");
 
-    return {
-      success: true,
-      output: result.stdout,
-      exitCode: result.exitCode,
-    };
-  } catch (error) {
-    if (error instanceof Error && "exitCode" in error) {
-      const execaError = error as unknown as { exitCode: number; stderr?: string; stdout?: string; message: string };
-      console.error("Claude Code failed:", execaError.message);
-      return {
-        success: false,
-        output: execaError.stderr || execaError.stdout || execaError.message,
-        exitCode: execaError.exitCode,
-      };
-    }
+        return {
+          success: true,
+          output: result.stdout,
+          exitCode: result.exitCode,
+        };
+      } catch (error) {
+        // Enhanced error handling with context
+        if (error instanceof Error && "exitCode" in error) {
+          const execaError = error as unknown as {
+            exitCode: number;
+            stderr?: string;
+            stdout?: string;
+            message: string;
+            timedOut?: boolean;
+          };
 
-    console.error("Claude Code error:", error);
+          const isTimeout = execaError.timedOut || execaError.message.toLowerCase().includes("timeout");
+          const isRetryable = isTimeout || isRetryableError(error);
+
+          console.error(`[ClaudeCode] Failed with exit code ${execaError.exitCode}:`, {
+            message: execaError.message,
+            stderr: execaError.stderr?.slice(0, 200),
+            isTimeout,
+            isRetryable,
+          });
+
+          const claudeError = new ClaudeCodeError(
+            `Claude Code failed: ${execaError.message}`,
+            execaError.exitCode,
+            execaError.stderr,
+            execaError.stdout,
+            isTimeout,
+            isRetryable
+          );
+
+          throw claudeError;
+        }
+
+        console.error("[ClaudeCode] Unexpected error:", error);
+        const claudeError = new ClaudeCodeError(
+          error instanceof Error ? error.message : "Unknown error",
+          undefined,
+          undefined,
+          undefined,
+          false,
+          isRetryableError(error)
+        );
+        throw claudeError;
+      }
+    },
+    retryConfig,
+    "ClaudeCode"
+  ).catch((error) => {
+    // Convert final error to ClaudeCodeResult
+    const claudeError = error instanceof ClaudeCodeError ? error : new ClaudeCodeError(String(error));
     return {
       success: false,
-      output: error instanceof Error ? error.message : "Unknown error",
+      output: claudeError.stderr || claudeError.stdout || claudeError.message,
+      exitCode: claudeError.exitCode,
+      error: claudeError.message,
+      attemptsMade: retryConfig.maxAttempts || DEFAULT_RETRY_CONFIG.maxAttempts,
     };
-  }
+  });
 }
 
 /**
@@ -186,13 +336,38 @@ Please create this project structure and implement the core features.`;
 
 /**
  * Check if Claude Code CLI is available
+ * Returns detailed information about availability and version
  */
 export async function isClaudeCodeAvailable(): Promise<boolean> {
   try {
-    await execa("claude", ["--version"], { timeout: 5000 });
+    const result = await execa("claude", ["--version"], { timeout: 5000 });
+    console.log("[ClaudeCode] CLI is available, version:", result.stdout.trim());
     return true;
-  } catch {
+  } catch (error) {
+    console.warn("[ClaudeCode] CLI not available:", error instanceof Error ? error.message : String(error));
     return false;
+  }
+}
+
+/**
+ * Get detailed Claude Code CLI status including version and auth
+ */
+export async function getClaudeCodeStatus(): Promise<{
+  available: boolean;
+  version?: string;
+  error?: string;
+}> {
+  try {
+    const result = await execa("claude", ["--version"], { timeout: 5000 });
+    return {
+      available: true,
+      version: result.stdout.trim(),
+    };
+  } catch (error) {
+    return {
+      available: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -230,6 +405,7 @@ export async function runAgentTask(
 /**
  * Run Claude Code with streaming output and real-time event callbacks
  * Uses --output-format stream-json for detailed progress
+ * Includes improved error handling and timeout management
  */
 export async function runClaudeCodeStreaming(
   workDir: string,
@@ -238,60 +414,90 @@ export async function runClaudeCodeStreaming(
   options?: {
     timeout?: number;
     allowEdits?: boolean;
+    retryConfig?: Partial<RetryConfig>;
   }
 ): Promise<ClaudeCodeResult> {
   const timeout = options?.timeout || 600000;
+  const retryConfig = options?.retryConfig || {};
 
-  return new Promise((resolve) => {
-    // --verbose is required when using --output-format stream-json with --print
-    const args = ["--print", "--verbose", "--output-format", "stream-json"];
+  // Wrap the streaming logic with retry
+  return withRetry(
+    async () => {
+      return new Promise<ClaudeCodeResult>((resolve, reject) => {
+        // --verbose is required when using --output-format stream-json with --print
+        const args = ["--print", "--verbose", "--output-format", "stream-json"];
 
-    if (options?.allowEdits !== false) {
-      args.push("--dangerously-skip-permissions");
-    }
+        if (options?.allowEdits !== false) {
+          args.push("--dangerously-skip-permissions");
+        }
 
-    console.log(`Running Claude Code (streaming) in ${workDir}`);
-    console.log(`Args: ${args.join(" ")}`);
+        console.log(`[ClaudeCode Streaming] Running in ${workDir} with timeout ${timeout}ms`);
+        console.log(`[ClaudeCode Streaming] Args: ${args.join(" ")}`);
 
-    const child = spawn("claude", args, {
-      cwd: workDir,
-      env: {
-        ...process.env,
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-        CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    });
-
-    let fullOutput = "";
-    let textContent = "";
-    let currentToolId: string | null = null;
-    let stepCounter = 0;
-    let isResolved = false;
-
-    // Manual timeout handler since spawn doesn't support timeout option
-    const timeoutId = setTimeout(() => {
-      if (!isResolved) {
-        console.log(`Claude Code timed out after ${timeout}ms`);
-        child.kill("SIGTERM");
-        onStep({
-          id: `step-${++stepCounter}`,
-          type: "error",
-          timestamp: Date.now(),
-          content: `Timeout after ${timeout / 1000} seconds`,
-          status: "failed",
+        const child = spawn("claude", args, {
+          cwd: workDir,
+          env: {
+            ...process.env,
+            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+            CLAUDE_CODE_OAUTH_TOKEN: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+          },
         });
-        isResolved = true;
-        resolve({
-          success: false,
-          output: "Timeout: Claude Code did not respond in time",
-        });
-      }
-    }, timeout);
 
-    // Send prompt via stdin
-    console.log(`Sending prompt (${prompt.length} chars) via stdin...`);
-    child.stdin.write(prompt);
-    child.stdin.end();
+        let fullOutput = "";
+        let textContent = "";
+        let currentToolId: string | null = null;
+        let stepCounter = 0;
+        let isResolved = false;
+        let stderrOutput = "";
+
+        // Manual timeout handler since spawn doesn't support timeout option
+        const timeoutId = setTimeout(() => {
+          if (!isResolved) {
+            console.error(`[ClaudeCode Streaming] Timed out after ${timeout}ms`);
+            child.kill("SIGTERM");
+
+            // Give the process a grace period to clean up
+            setTimeout(() => {
+              if (!child.killed) {
+                console.warn("[ClaudeCode Streaming] Process did not terminate, sending SIGKILL");
+                child.kill("SIGKILL");
+              }
+            }, 5000);
+
+            onStep({
+              id: `step-${++stepCounter}`,
+              type: "error",
+              timestamp: Date.now(),
+              content: `Timeout after ${timeout / 1000} seconds`,
+              status: "failed",
+            });
+
+            isResolved = true;
+            const timeoutError = new ClaudeCodeError(
+              `Claude Code timed out after ${timeout}ms`,
+              undefined,
+              stderrOutput,
+              textContent || fullOutput,
+              true,
+              true // Timeouts are retryable
+            );
+            reject(timeoutError);
+          }
+        }, timeout);
+
+        // Send prompt via stdin with error handling
+        try {
+          console.log(`[ClaudeCode Streaming] Sending prompt (${prompt.length} chars) via stdin...`);
+          child.stdin.write(prompt);
+          child.stdin.end();
+        } catch (error) {
+          clearTimeout(timeoutId);
+          isResolved = true;
+          reject(
+            new ClaudeCodeError(`Failed to write prompt to stdin: ${error instanceof Error ? error.message : String(error)}`)
+          );
+          return;
+        }
 
     // Process stdout line by line (NDJSON format)
     let buffer = "";
@@ -332,70 +538,104 @@ export async function runClaudeCodeStreaming(
       }
     });
 
-    child.stderr.on("data", (data: Buffer) => {
-      const errorText = data.toString();
-      console.error("Claude Code stderr:", errorText);
-      onStep({
-        id: `step-${++stepCounter}`,
-        type: "error",
-        timestamp: Date.now(),
-        content: errorText,
-        status: "failed",
+        child.stderr.on("data", (data: Buffer) => {
+          const errorText = data.toString();
+          stderrOutput += errorText;
+          console.error("[ClaudeCode Streaming] stderr:", errorText.slice(0, 200));
+          onStep({
+            id: `step-${++stepCounter}`,
+            type: "error",
+            timestamp: Date.now(),
+            content: errorText,
+            status: "failed",
+          });
+        });
+
+        child.on("close", (code) => {
+          clearTimeout(timeoutId);
+          if (isResolved) return;
+          isResolved = true;
+
+          console.log(`[ClaudeCode Streaming] Process closed with code ${code}`);
+
+          // Process any remaining buffer
+          if (buffer.trim()) {
+            try {
+              const event = JSON.parse(buffer);
+              const step = parseStreamEvent(event, ++stepCounter, currentToolId);
+              if (step) onStep(step);
+            } catch (error) {
+              console.warn("[ClaudeCode Streaming] Failed to parse remaining buffer:", error);
+            }
+          }
+
+          const finalStatus = code === 0 ? "completed" : "failed";
+          onStep({
+            id: `step-${++stepCounter}`,
+            type: "complete",
+            timestamp: Date.now(),
+            content: code === 0 ? "Task completed" : `Task failed with exit code ${code}`,
+            status: finalStatus,
+          });
+
+          if (code === 0) {
+            resolve({
+              success: true,
+              output: textContent || fullOutput,
+              exitCode: code ?? undefined,
+            });
+          } else {
+            // Non-zero exit code - create error for potential retry
+            const error = new ClaudeCodeError(
+              `Claude Code exited with code ${code}`,
+              code ?? undefined,
+              stderrOutput,
+              textContent || fullOutput,
+              false,
+              isRetryableError(new Error(stderrOutput))
+            );
+            reject(error);
+          }
+        });
+
+        child.on("error", (error) => {
+          clearTimeout(timeoutId);
+          if (isResolved) return;
+          isResolved = true;
+
+          console.error("[ClaudeCode Streaming] Spawn error:", error);
+          onStep({
+            id: `step-${++stepCounter}`,
+            type: "error",
+            timestamp: Date.now(),
+            content: `Process error: ${error.message}`,
+            status: "failed",
+          });
+
+          const claudeError = new ClaudeCodeError(
+            `Failed to spawn Claude Code process: ${error.message}`,
+            undefined,
+            stderrOutput,
+            textContent || fullOutput,
+            false,
+            true // Spawn errors are often retryable
+          );
+          reject(claudeError);
+        });
       });
-    });
-
-    child.on("close", (code) => {
-      clearTimeout(timeoutId);
-      if (isResolved) return;
-      isResolved = true;
-
-      console.log(`Claude Code process closed with code ${code}`);
-
-      // Process any remaining buffer
-      if (buffer.trim()) {
-        try {
-          const event = JSON.parse(buffer);
-          const step = parseStreamEvent(event, ++stepCounter, currentToolId);
-          if (step) onStep(step);
-        } catch {
-          // Ignore
-        }
-      }
-
-      onStep({
-        id: `step-${++stepCounter}`,
-        type: "complete",
-        timestamp: Date.now(),
-        content: "Task completed",
-        status: code === 0 ? "completed" : "failed",
-      });
-
-      resolve({
-        success: code === 0,
-        output: textContent || fullOutput,
-        exitCode: code ?? undefined,
-      });
-    });
-
-    child.on("error", (error) => {
-      clearTimeout(timeoutId);
-      if (isResolved) return;
-      isResolved = true;
-
-      console.error("Claude Code spawn error:", error);
-      onStep({
-        id: `step-${++stepCounter}`,
-        type: "error",
-        timestamp: Date.now(),
-        content: error.message,
-        status: "failed",
-      });
-
-      resolve({
-        success: false,
-        output: error.message,
-      });
-    });
+    },
+    retryConfig,
+    "ClaudeCode Streaming"
+  ).catch((error) => {
+    // Convert final error to ClaudeCodeResult
+    const claudeError = error instanceof ClaudeCodeError ? error : new ClaudeCodeError(String(error));
+    return {
+      success: false,
+      output: claudeError.stderr || claudeError.stdout || claudeError.message,
+      exitCode: claudeError.exitCode,
+      error: claudeError.message,
+      attemptsMade: retryConfig.maxAttempts || DEFAULT_RETRY_CONFIG.maxAttempts,
+    };
   });
 }
 
