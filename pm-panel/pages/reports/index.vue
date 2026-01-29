@@ -63,6 +63,20 @@
                 {{ report.generatedTasks.length }} tasks
               </span>
               <button
+                @click.stop="handleExportMarkdown(report.id)"
+                class="p-1.5 rounded-lg hover:bg-cyan-500/10 text-gray-500 hover:text-cyan-400 transition-colors"
+                title="Export as Markdown"
+              >
+                <UIcon name="i-heroicons-document-text" class="w-4 h-4" />
+              </button>
+              <button
+                @click.stop="handleExportPDF(report.id)"
+                class="p-1.5 rounded-lg hover:bg-purple-500/10 text-gray-500 hover:text-purple-400 transition-colors"
+                title="Export as PDF"
+              >
+                <UIcon name="i-heroicons-document-arrow-down" class="w-4 h-4" />
+              </button>
+              <button
                 @click.stop="handleDelete(report.id)"
                 class="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
                 title="Delete report"
@@ -226,6 +240,42 @@ async function handleDelete(id: string) {
     toast.add({
       title: "Error",
       description: error instanceof Error ? error.message : "Failed to delete report",
+      color: "red",
+    });
+  }
+}
+
+function handleExportMarkdown(id: string) {
+  try {
+    api.exportReportMarkdown(id);
+    toast.add({
+      title: "Exporting",
+      description: "Report is being exported as Markdown",
+      color: "green",
+    });
+  } catch (error) {
+    console.error("Export error:", error);
+    toast.add({
+      title: "Error",
+      description: "Failed to export report",
+      color: "red",
+    });
+  }
+}
+
+function handleExportPDF(id: string) {
+  try {
+    api.exportReportPDF(id);
+    toast.add({
+      title: "Exporting",
+      description: "Report is being exported as PDF",
+      color: "green",
+    });
+  } catch (error) {
+    console.error("Export error:", error);
+    toast.add({
+      title: "Error",
+      description: "Failed to export report",
       color: "red",
     });
   }

@@ -94,6 +94,14 @@ export function useApi() {
   const getReport = (id: string) => fetchApi<AnalysisReport>(`/api/reports/${id}`);
   const deleteReport = (id: string) =>
     fetchApi<{ success: boolean }>(`/api/reports/${id}`, { method: "DELETE" });
+  const exportReportMarkdown = (id: string) => {
+    const url = `${baseUrl}/api/reports/${id}/export/markdown`;
+    window.open(url, "_blank");
+  };
+  const exportReportPDF = (id: string) => {
+    const url = `${baseUrl}/api/reports/${id}/export/pdf`;
+    window.open(url, "_blank");
+  };
 
   // Agent
   const getAgentStatus = () =>
@@ -405,6 +413,8 @@ export function useApi() {
     getReports,
     getReport,
     deleteReport,
+    exportReportMarkdown,
+    exportReportPDF,
     // Agent
     getAgentStatus,
     runHealthCheck,
