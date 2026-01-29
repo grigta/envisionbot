@@ -12,7 +12,7 @@ const subscribers = new Set<WSEventHandler>();
 export function useWebSocket() {
   const config = useRuntimeConfig();
   const baseUrl = config.public.apiBaseUrl;
-  const wsUrl = baseUrl.replace(/^http/, "ws") + "/ws/live";
+  const { token } = useAuth();
 
   const connected = ref(false);
   const events = ref<WSEvent[]>([]);
@@ -26,6 +26,17 @@ export function useWebSocket() {
 
   function connect() {
     if (ws?.readyState === WebSocket.OPEN) return;
+
+    // Get authentication token
+    const authToken = token.value;
+    if (!authToken) {
+      console.warn("Cannot connect to WebSocket: No authentication token");
+      return;
+    }
+
+    // Build WebSocket URL with token as query parameter
+    const wsBaseUrl = baseUrl.replace(/^http/, "ws") + "/ws/live";
+    const wsUrl = `${wsBaseUrl}?token=${encodeURIComponent(authToken)}`;
 
     try {
       ws = new WebSocket(wsUrl);
