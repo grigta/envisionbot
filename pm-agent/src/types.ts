@@ -304,3 +304,70 @@ export interface CodebaseAnalysisResult {
   }>;
   notes: string;
 }
+
+// ============================================
+// GITHUB WEBHOOK TYPES
+// ============================================
+
+export type GitHubWebhookEvent =
+  | "issues"
+  | "pull_request"
+  | "push"
+  | "issue_comment"
+  | "pull_request_review"
+  | "pull_request_review_comment"
+  | "status"
+  | "check_suite"
+  | "check_run";
+
+export interface GitHubWebhookPayload {
+  action?: string;
+  issue?: {
+    number: number;
+    title: string;
+    state: "open" | "closed";
+    html_url: string;
+    user: { login: string };
+    labels: Array<{ name: string }>;
+    body?: string;
+  };
+  pull_request?: {
+    number: number;
+    title: string;
+    state: "open" | "closed";
+    html_url: string;
+    user: { login: string };
+    merged?: boolean;
+    head: { ref: string };
+    base: { ref: string };
+  };
+  comment?: {
+    id: number;
+    body: string;
+    user: { login: string };
+    html_url: string;
+  };
+  repository: {
+    name: string;
+    full_name: string;
+    owner: { login: string };
+  };
+  sender: {
+    login: string;
+  };
+  ref?: string; // For push events
+  commits?: Array<{
+    id: string;
+    message: string;
+    author: { name: string; email: string };
+  }>;
+}
+
+export interface WebhookProcessingResult {
+  success: boolean;
+  event: GitHubWebhookEvent;
+  action?: string;
+  message: string;
+  taskUpdated?: boolean;
+  taskId?: string;
+}

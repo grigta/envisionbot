@@ -23,6 +23,7 @@ const PUBLIC_ROUTES = [
   "/api/auth/login",
   "/api/auth/validate",
   "/api/health",
+  "/api/webhooks/github",
 ];
 
 // Check if a route is public

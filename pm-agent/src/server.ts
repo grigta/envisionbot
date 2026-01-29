@@ -282,6 +282,92 @@ export async function startServer(): Promise<void> {
     return { status: "ok", timestamp: Date.now() };
   });
 
+  // ============================================
+  // GITHUB WEBHOOK ENDPOINT
+  // ============================================
+
+  // GitHub webhook receiver (public endpoint - no auth required)
+  fastify.post<{
+    Body: unknown;
+    Headers: {
+      "x-github-event"?: string;
+      "x-hub-signature-256"?: string;
+    };
+  }>(
+    "/api/webhooks/github",
+    {
+      config: {
+        // Skip auth for this endpoint
+        skipAuth: true,
+      },
+    },
+    async (request, reply) => {
+      const event = request.headers["x-github-event"];
+      const signature = request.headers["x-hub-signature-256"];
+
+      if (!event) {
+        return reply.status(400).send({ error: "Missing X-GitHub-Event header" });
+      }
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      // Import webhook service
+      const { GitHubWebhookService } = await import("./services/github-webhook.service.js");
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+      const taskRepo = new TaskRepository(deps);
+      const projectRepo = new ProjectRepository(deps);
+      const webhookService = new GitHubWebhookService(
+        taskRepo,
+        projectRepo,
+        process.env.GITHUB_WEBHOOK_SECRET
+      );
+
+      // Verify signature
+      const payload = JSON.stringify(request.body);
+      if (signature && !webhookService.verifySignature(payload, signature)) {
+        console.error("[Webhook] Invalid signature");
+        return reply.status(401).send({ error: "Invalid signature" });
+      }
+
+      try {
+        // Process webhook
+        const result = await webhookService.processWebhook(
+          event as any,
+          request.body as any
+        );
+
+        // Broadcast webhook event to connected clients
+        if (result.success && result.taskUpdated) {
+          broadcast({
+            type: "task_updated",
+            timestamp: Date.now(),
+            data: {
+              taskId: result.taskId,
+              event: result.event,
+              action: result.action,
+              source: "github_webhook",
+            },
+          });
+        }
+
+        return {
+          success: result.success,
+          message: result.message,
+        };
+      } catch (error) {
+        console.error("[Webhook] Error processing webhook:", error);
+        return reply.status(500).send({
+          error: error instanceof Error ? error.message : "Internal server error",
+        });
+      }
+    }
+  );
+
   // Stats
   fastify.get("/api/stats", async () => {
     return stateStore.getStats();

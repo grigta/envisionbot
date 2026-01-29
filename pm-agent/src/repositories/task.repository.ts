@@ -177,6 +177,51 @@ export class TaskRepository extends BaseRepository<Task> {
   }
 
   /**
+   * Get task by GitHub issue number and repository
+   * Used by webhook service to find tasks linked to GitHub issues
+   */
+  async getByGitHubIssue(repo: string, issueNumber: number): Promise<Task | undefined> {
+    // First, get the project for this repo
+    const projectStmt = this.db.prepare("SELECT id FROM projects WHERE repo = ?");
+    const project = projectStmt.get(repo) as { id: string } | undefined;
+
+    if (!project) {
+      return undefined;
+    }
+
+    // Find task with this GitHub issue number in this project
+    const stmt = this.db.prepare(`
+      SELECT * FROM tasks
+      WHERE project_id = ?
+        AND github_issue_number = ?
+      LIMIT 1
+    `);
+
+    const row = stmt.get(project.id, issueNumber) as TaskRow | undefined;
+
+    if (row) {
+      return this.rowToTask(row);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Get tasks that reference a specific PR URL
+   * Used by webhook service to find tasks linked to pull requests
+   */
+  async getByRelatedPR(prUrl: string): Promise<Task[]> {
+    const sql = `
+      SELECT * FROM tasks
+      WHERE related_prs LIKE ?
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(`%${prUrl}%`) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
    * Update specific fields of a task
    */
   async update(id: string, updates: Partial<Task>): Promise<Task | undefined> {
