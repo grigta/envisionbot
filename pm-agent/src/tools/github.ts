@@ -1,6 +1,7 @@
 import { execa } from "execa";
 import type { ToolDefinition, ToolResult } from "../types.js";
 import { approvalQueue } from "../approval/queue.js";
+import type { GitHubCacheService } from "../services/github-cache.service.js";
 
 // Tool definitions for Claude
 export const githubTools: ToolDefinition[] = [
@@ -454,8 +455,34 @@ export async function executeApprovedAction(
   }
 }
 
-// Helper to run gh CLI
+// GitHub cache service instance (set by initGitHubCache)
+let githubCache: GitHubCacheService | null = null;
+
+/**
+ * Initialize GitHub cache service
+ * Should be called once at application startup
+ */
+export function initGitHubCache(cacheService: GitHubCacheService): void {
+  githubCache = cacheService;
+}
+
+/**
+ * Get GitHub cache service instance
+ */
+export function getGitHubCache(): GitHubCacheService | null {
+  return githubCache;
+}
+
+// Helper to run gh CLI with caching
 async function gh(args: string[]): Promise<string> {
+  if (githubCache) {
+    return githubCache.getCached(args, async () => {
+      const { stdout } = await execa("gh", args);
+      return stdout;
+    });
+  }
+
+  // No cache, execute directly
   const { stdout } = await execa("gh", args);
   return stdout;
 }
