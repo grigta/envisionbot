@@ -1,16 +1,36 @@
 <template>
   <div class="min-h-screen bg-[#191919] text-gray-100 flex">
+    <!-- Mobile menu backdrop -->
+    <div
+      v-if="mobileMenuOpen"
+      @click="mobileMenuOpen = false"
+      class="fixed inset-0 bg-black/50 z-40 lg:hidden"
+    />
+
     <!-- Sidebar -->
-    <aside class="w-60 bg-[#191919] border-r border-[#2d2d2d] flex flex-col fixed h-screen">
+    <aside
+      class="w-60 bg-[#191919] border-r border-[#2d2d2d] flex flex-col fixed h-screen z-50 transition-transform duration-300"
+      :class="{
+        '-translate-x-full lg:translate-x-0': !mobileMenuOpen,
+        'translate-x-0': mobileMenuOpen
+      }"
+    >
       <!-- Logo -->
-      <div class="p-4 border-b border-[#2d2d2d] h-[57px] flex items-center">
-        <div class="flex items-center gap-2 w-full">
+      <div class="p-4 border-b border-[#2d2d2d] h-[57px] flex items-center justify-between">
+        <div class="flex items-center gap-2">
           <div class="w-6 h-6 bg-gradient-to-br from-cyan-400 to-blue-500 rounded flex items-center justify-center">
             <span class="text-xs font-bold text-white">E</span>
           </div>
           <span class="font-semibold text-white">Envision CEO</span>
           <UBadge v-if="wsConnected" color="green" variant="soft" size="xs">Live</UBadge>
         </div>
+        <!-- Mobile close button -->
+        <button
+          @click="mobileMenuOpen = false"
+          class="lg:hidden text-gray-400 hover:text-white p-1"
+        >
+          <UIcon name="i-heroicons-x-mark" class="w-5 h-5" />
+        </button>
       </div>
 
       <!-- Navigation -->
@@ -83,18 +103,26 @@
     </aside>
 
     <!-- Main content -->
-    <main class="flex-1 ml-60">
+    <main class="flex-1 lg:ml-60">
       <!-- Top bar -->
       <header class="sticky top-0 z-10 bg-[#191919]/80 backdrop-blur-sm border-b border-[#2d2d2d] h-[57px]">
-        <div class="px-8 h-full flex items-center justify-between">
+        <div class="px-4 sm:px-6 lg:px-8 h-full flex items-center justify-between gap-3">
+          <!-- Mobile menu button -->
+          <button
+            @click="mobileMenuOpen = !mobileMenuOpen"
+            class="lg:hidden text-gray-400 hover:text-white p-1"
+          >
+            <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+          </button>
+
           <!-- Breadcrumb -->
-          <div class="flex items-center gap-2 text-sm">
-            <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors">
+          <div class="flex items-center gap-2 text-sm flex-1 min-w-0">
+            <NuxtLink to="/" class="text-gray-500 hover:text-white transition-colors hidden sm:block">
               Home
             </NuxtLink>
             <template v-if="currentPage">
-              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-600" />
-              <span class="text-white">{{ currentPage }}</span>
+              <UIcon name="i-heroicons-chevron-right" class="w-3 h-3 text-gray-600 hidden sm:block" />
+              <span class="text-white truncate">{{ currentPage }}</span>
             </template>
           </div>
 
@@ -103,14 +131,14 @@
             class="flex items-center gap-2 px-3 py-1.5 bg-[#2d2d2d] rounded-lg text-sm text-gray-400 hover:bg-[#363636] transition-colors"
           >
             <UIcon name="i-heroicons-magnifying-glass" class="w-4 h-4" />
-            <span>Search...</span>
-            <kbd class="text-[10px] bg-[#404040] px-1.5 py-0.5 rounded">⌘K</kbd>
+            <span class="hidden sm:inline">Search...</span>
+            <kbd class="text-[10px] bg-[#404040] px-1.5 py-0.5 rounded hidden md:inline">⌘K</kbd>
           </button>
         </div>
       </header>
 
       <!-- Page content -->
-      <div class="p-8">
+      <div class="p-4 sm:p-6 lg:p-8">
         <slot />
       </div>
     </main>
@@ -155,6 +183,13 @@ const { connected: wsConnected, events } = useWebSocket();
 const api = useApi();
 const toast = useToast();
 const { user: authUser, isAuthenticated, logout } = useAuth();
+
+const mobileMenuOpen = ref(false);
+
+// Close mobile menu on route change
+watch(() => route.path, () => {
+  mobileMenuOpen.value = false;
+});
 
 async function handleLogout() {
   await logout();

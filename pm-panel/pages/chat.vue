@@ -1,33 +1,55 @@
 <template>
-  <div class="fixed inset-0 left-60 flex">
-    <!-- Sidebar (fixed position) -->
-    <ChatSidebar
-      :sessions="sessions"
-      :current-session-id="currentSessionId"
-      :loading="loadingSessions"
-      @new-chat="createNewSession"
-      @select="switchSession"
-      @delete="deleteSession"
+  <div class="fixed inset-0 lg:left-60 flex">
+    <!-- Chat Sidebar backdrop (mobile) -->
+    <div
+      v-if="chatSidebarOpen"
+      @click="chatSidebarOpen = false"
+      class="fixed inset-0 bg-black/50 z-30 lg:hidden"
     />
 
+    <!-- Sidebar (fixed position) -->
+    <div
+      class="transition-transform duration-300 z-40"
+      :class="{
+        '-translate-x-full lg:translate-x-0': !chatSidebarOpen,
+        'translate-x-0': chatSidebarOpen
+      }"
+    >
+      <ChatSidebar
+        :sessions="sessions"
+        :current-session-id="currentSessionId"
+        :loading="loadingSessions"
+        @new-chat="createNewSession"
+        @select="switchSession"
+        @delete="deleteSession"
+      />
+    </div>
+
     <!-- Main Chat Area (fixed, starts after chat sidebar) -->
-    <div class="flex-1 flex flex-col min-w-0 ml-60 bg-[#191919]">
+    <div class="flex-1 flex flex-col min-w-0 lg:ml-60 bg-[#191919]">
       <!-- Header (matches sidebar header height) -->
-      <div class="h-[57px] flex items-center justify-between px-8 border-b border-[#2d2d2d] flex-shrink-0">
-        <div>
-          <h1 class="text-lg font-semibold text-white">Envision CEO Chat</h1>
+      <div class="h-[57px] flex items-center justify-between px-4 sm:px-6 lg:px-8 border-b border-[#2d2d2d] flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Mobile chat sidebar toggle -->
+          <button
+            @click="chatSidebarOpen = !chatSidebarOpen"
+            class="lg:hidden text-gray-400 hover:text-white p-1"
+          >
+            <UIcon name="i-heroicons-bars-3" class="w-5 h-5" />
+          </button>
+          <h1 class="text-base sm:text-lg font-semibold text-white">Envision CEO Chat</h1>
         </div>
         <div class="flex items-center gap-2">
           <!-- Connection status -->
           <div
-            class="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+            class="flex items-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg"
             :class="wsConnected ? 'bg-green-500/10' : 'bg-red-500/10'"
           >
             <div
               class="w-2 h-2 rounded-full"
               :class="wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'"
             />
-            <span class="text-sm" :class="wsConnected ? 'text-green-400' : 'text-red-400'">
+            <span class="text-xs sm:text-sm hidden sm:inline" :class="wsConnected ? 'text-green-400' : 'text-red-400'">
               {{ wsConnected ? 'Connected' : 'Disconnected' }}
             </span>
           </div>
@@ -37,7 +59,7 @@
       <!-- Messages Container -->
       <div
         ref="messagesContainer"
-        class="flex-1 overflow-y-auto space-y-6 px-8 py-6"
+        class="flex-1 overflow-y-auto space-y-6 px-4 sm:px-6 lg:px-8 py-4 sm:py-6"
       >
         <!-- Empty State -->
         <div v-if="messages.length === 0 && !isProcessing" class="h-full flex flex-col items-center justify-center text-center">
@@ -92,7 +114,7 @@
       </div>
 
       <!-- Input -->
-      <div class="px-8 pb-6">
+      <div class="px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6">
         <ChatInput
           v-model="input"
           :disabled="isProcessing"
@@ -139,6 +161,7 @@ const messages = ref<ChatMessageType[]>([]);
 const isProcessing = ref(false);
 const activeSteps = ref<AgentStep[]>([]);
 const currentChatId = ref<string | null>(null);
+const chatSidebarOpen = ref(false);
 
 // Session management
 const sessions = ref<ChatSession[]>([]);
@@ -177,6 +200,7 @@ async function switchSession(sessionId: string) {
     const session = await api.switchChatSession(sessionId);
     currentSessionId.value = session.id;
     messages.value = session.messages as ChatMessageType[];
+    chatSidebarOpen.value = false; // Close sidebar on mobile after switching
     scrollToBottom();
   } catch (error) {
     console.error("Failed to switch session:", error);
