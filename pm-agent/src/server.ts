@@ -272,6 +272,30 @@ export async function startServer(): Promise<void> {
     }
   );
 
+  fastify.put<{ Params: { id: string }; Body: { name?: string; repo?: string; phase?: string; goals?: string[]; focusAreas?: string[] } }>(
+    "/api/projects/:id",
+    async (request, reply) => {
+      const project = stateStore.getProject(request.params.id);
+      if (!project) {
+        return reply.status(404).send({ error: "Project not found" });
+      }
+
+      const { name, repo, phase, goals, focusAreas } = request.body;
+      const updatedProject = {
+        ...project,
+        ...(name !== undefined && { name }),
+        ...(repo !== undefined && { repo }),
+        ...(phase !== undefined && { phase }),
+        ...(goals !== undefined && { goals }),
+        ...(focusAreas !== undefined && { focusAreas }),
+        updatedAt: Date.now(),
+      };
+
+      stateStore.updateProject(updatedProject);
+      return updatedProject;
+    }
+  );
+
   fastify.delete<{ Params: { id: string } }>("/api/projects/:id", async (request, reply) => {
     const project = stateStore.getProject(request.params.id);
     if (!project) {
