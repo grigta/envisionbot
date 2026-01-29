@@ -841,6 +841,37 @@ export async function startServer(): Promise<void> {
     return { success: true };
   });
 
+  // Report Export
+  fastify.get<{ Params: { id: string } }>("/api/reports/:id/export/markdown", async (request, reply) => {
+    const report = stateStore.getReport(request.params.id);
+    if (!report) {
+      return reply.status(404).send({ error: "Report not found" });
+    }
+
+    const { ReportExportService } = await import("./services/report-export.service.js");
+    const exportService = new ReportExportService();
+    const markdown = exportService.exportToMarkdown(report);
+
+    reply.header("Content-Type", "text/markdown");
+    reply.header("Content-Disposition", `attachment; filename="report-${report.id}.md"`);
+    return markdown;
+  });
+
+  fastify.get<{ Params: { id: string } }>("/api/reports/:id/export/pdf", async (request, reply) => {
+    const report = stateStore.getReport(request.params.id);
+    if (!report) {
+      return reply.status(404).send({ error: "Report not found" });
+    }
+
+    const { ReportExportService } = await import("./services/report-export.service.js");
+    const exportService = new ReportExportService();
+    const pdfBuffer = await exportService.exportToPDF(report);
+
+    reply.header("Content-Type", "application/pdf");
+    reply.header("Content-Disposition", `attachment; filename="report-${report.id}.pdf"`);
+    return reply.send(pdfBuffer);
+  });
+
   // Agent control
   fastify.post<{ Body: schemas.RunAgentRequest }>(
     "/api/agent/run",
