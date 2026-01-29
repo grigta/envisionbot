@@ -284,4 +284,282 @@ export class TaskRepository extends BaseRepository<Task> {
 
     return false;
   }
+
+  // ============================================
+  // TASK DEPENDENCIES METHODS
+  // ============================================
+
+  /**
+   * Add a dependency relationship between two tasks
+   * @param taskId - The task that depends on another
+   * @param dependsOnTaskId - The task being depended on
+   * @param type - Type of dependency: 'depends_on' or 'blocks'
+   */
+  async addDependency(
+    taskId: string,
+    dependsOnTaskId: string,
+    type: "depends_on" | "blocks" = "depends_on"
+  ): Promise<boolean> {
+    // Validate both tasks exist
+    const task = await this.getById(taskId);
+    const dependsOnTask = await this.getById(dependsOnTaskId);
+
+    if (!task || !dependsOnTask) {
+      return false;
+    }
+
+    // Prevent self-dependency
+    if (taskId === dependsOnTaskId) {
+      return false;
+    }
+
+    // Check for circular dependencies
+    if (await this.wouldCreateCircularDependency(taskId, dependsOnTaskId)) {
+      return false;
+    }
+
+    try {
+      const stmt = this.db.prepare(`
+        INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id, dependency_type, created_at)
+        VALUES (?, ?, ?, ?)
+      `);
+
+      const result = stmt.run(taskId, dependsOnTaskId, type, Date.now());
+
+      if (result.changes > 0) {
+        await this.invalidateCache(
+          this.entityCacheKey(taskId),
+          this.entityCacheKey(dependsOnTaskId),
+          `pm:tasks:project:${task.projectId}`
+        );
+
+        await this.publishEvent("task_dependency_added", {
+          taskId,
+          dependsOnTaskId,
+          type,
+        });
+
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Error adding task dependency:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Remove a dependency relationship
+   */
+  async removeDependency(taskId: string, dependsOnTaskId: string): Promise<boolean> {
+    const stmt = this.db.prepare(`
+      DELETE FROM task_dependencies
+      WHERE task_id = ? AND depends_on_task_id = ?
+    `);
+
+    const result = stmt.run(taskId, dependsOnTaskId);
+
+    if (result.changes > 0) {
+      await this.invalidateCache(
+        this.entityCacheKey(taskId),
+        this.entityCacheKey(dependsOnTaskId)
+      );
+
+      await this.publishEvent("task_dependency_removed", {
+        taskId,
+        dependsOnTaskId,
+      });
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Get all tasks that a task depends on
+   */
+  async getDependencies(taskId: string): Promise<Task[]> {
+    const sql = `
+      SELECT t.* FROM tasks t
+      INNER JOIN task_dependencies td ON t.id = td.depends_on_task_id
+      WHERE td.task_id = ?
+      ORDER BY td.created_at DESC
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(taskId) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
+   * Get all tasks that depend on this task (tasks blocked by this task)
+   */
+  async getDependents(taskId: string): Promise<Task[]> {
+    const sql = `
+      SELECT t.* FROM tasks t
+      INNER JOIN task_dependencies td ON t.id = td.task_id
+      WHERE td.depends_on_task_id = ?
+      ORDER BY td.created_at DESC
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(taskId) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
+   * Get tasks with unmet dependencies (dependencies that are not completed)
+   */
+  async getTasksWithUnmetDependencies(projectId?: string): Promise<Task[]> {
+    let sql = `
+      SELECT DISTINCT t.* FROM tasks t
+      INNER JOIN task_dependencies td ON t.id = td.task_id
+      INNER JOIN tasks dep ON dep.id = td.depends_on_task_id
+      WHERE dep.status != 'completed'
+    `;
+
+    const params: string[] = [];
+
+    if (projectId) {
+      sql += " AND t.project_id = ?";
+      params.push(projectId);
+    }
+
+    sql += " ORDER BY t.priority, t.generated_at DESC";
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all(...params) as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
+   * Check if a task has all its dependencies met (all dependencies are completed)
+   */
+  async areDependenciesMet(taskId: string): Promise<boolean> {
+    const sql = `
+      SELECT COUNT(*) as count FROM task_dependencies td
+      INNER JOIN tasks dep ON dep.id = td.depends_on_task_id
+      WHERE td.task_id = ? AND dep.status != 'completed'
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const result = stmt.get(taskId) as { count: number } | undefined;
+
+    return result ? result.count === 0 : true;
+  }
+
+  /**
+   * Check if adding a dependency would create a circular dependency
+   */
+  private async wouldCreateCircularDependency(
+    taskId: string,
+    dependsOnTaskId: string
+  ): Promise<boolean> {
+    // Check if dependsOnTaskId already depends on taskId (directly or indirectly)
+    const visited = new Set<string>();
+    const queue: string[] = [dependsOnTaskId];
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+
+      if (visited.has(currentId)) {
+        continue;
+      }
+
+      visited.add(currentId);
+
+      // If we've reached the original taskId, there's a circular dependency
+      if (currentId === taskId) {
+        return true;
+      }
+
+      // Get all tasks that currentId depends on
+      const sql = `
+        SELECT depends_on_task_id FROM task_dependencies
+        WHERE task_id = ?
+      `;
+
+      const stmt = this.db.prepare(sql);
+      const deps = stmt.all(currentId) as { depends_on_task_id: string }[];
+
+      for (const dep of deps) {
+        queue.push(dep.depends_on_task_id);
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Get task with its dependencies populated
+   */
+  async getTaskWithDependencies(taskId: string): Promise<Task | undefined> {
+    const task = await this.getById(taskId);
+    if (!task) return undefined;
+
+    const dependencies = await this.getDependencies(taskId);
+    const dependents = await this.getDependents(taskId);
+
+    return {
+      ...task,
+      dependsOn: dependencies.map((t) => t.id),
+      blocks: dependents.map((t) => t.id),
+    };
+  }
+
+  /**
+   * Get all tasks in a project with their dependencies
+   */
+  async getTasksWithDependencies(projectId: string): Promise<Task[]> {
+    const tasks = await this.getByProjectId(projectId);
+
+    // Load all dependencies for the project's tasks in one query
+    const taskIds = tasks.map((t) => t.id);
+    if (taskIds.length === 0) return [];
+
+    const placeholders = taskIds.map(() => "?").join(",");
+    const sql = `
+      SELECT
+        td.task_id,
+        td.depends_on_task_id,
+        td.dependency_type
+      FROM task_dependencies td
+      WHERE td.task_id IN (${placeholders})
+         OR td.depends_on_task_id IN (${placeholders})
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const deps = stmt.all(...taskIds, ...taskIds) as Array<{
+      task_id: string;
+      depends_on_task_id: string;
+      dependency_type: string;
+    }>;
+
+    // Build dependency maps
+    const dependsOnMap = new Map<string, string[]>();
+    const blocksMap = new Map<string, string[]>();
+
+    for (const dep of deps) {
+      // Add to dependsOn map
+      if (!dependsOnMap.has(dep.task_id)) {
+        dependsOnMap.set(dep.task_id, []);
+      }
+      dependsOnMap.get(dep.task_id)!.push(dep.depends_on_task_id);
+
+      // Add to blocks map (inverse relationship)
+      if (!blocksMap.has(dep.depends_on_task_id)) {
+        blocksMap.set(dep.depends_on_task_id, []);
+      }
+      blocksMap.get(dep.depends_on_task_id)!.push(dep.task_id);
+    }
+
+    // Populate tasks with dependencies
+    return tasks.map((task) => ({
+      ...task,
+      dependsOn: dependsOnMap.get(task.id) || [],
+      blocks: blocksMap.get(task.id) || [],
+    }));
+  }
 }

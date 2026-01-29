@@ -37,6 +37,10 @@ export interface Task {
   githubIssueState?: "open" | "closed";
   githubIssueCreatedAt?: number;
   githubIssueSyncedAt?: number;
+  // Task Dependencies (loaded separately via repository methods)
+  dependsOn?: string[]; // IDs of tasks this task depends on
+  blockedBy?: string[]; // IDs of tasks blocking this task
+  blocks?: string[]; // IDs of tasks this task blocks
 }
 
 export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";
@@ -49,6 +53,15 @@ export interface SuggestedAction {
   type: "create_issue" | "comment_issue" | "create_pr" | "merge_pr" | "close_issue" | "notify" | "custom";
   description: string;
   payload: Record<string, unknown>;
+}
+
+// Task Dependency types
+export interface TaskDependency {
+  id: number;
+  taskId: string;
+  dependsOnTaskId: string;
+  dependencyType: "depends_on" | "blocks";
+  createdAt: number;
 }
 
 // GitHub Issue Integration

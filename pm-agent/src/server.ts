@@ -621,6 +621,114 @@ export async function startServer(): Promise<void> {
     return reply.send(result);
   });
 
+  // Task Dependencies
+  fastify.get<{ Params: { id: string } }>("/api/tasks/:id/dependencies", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const dependencies = await taskRepo.getDependencies(request.params.id);
+    return reply.send(dependencies);
+  });
+
+  fastify.get<{ Params: { id: string } }>("/api/tasks/:id/dependents", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const dependents = await taskRepo.getDependents(request.params.id);
+    return reply.send(dependents);
+  });
+
+  fastify.get<{ Params: { id: string } }>("/api/tasks/:id/with-dependencies", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const task = await taskRepo.getTaskWithDependencies(request.params.id);
+    if (!task) {
+      return reply.status(404).send({ error: "Task not found" });
+    }
+    return reply.send(task);
+  });
+
+  fastify.post<{
+    Params: { id: string };
+    Body: { dependsOnTaskId: string; type?: "depends_on" | "blocks" };
+  }>("/api/tasks/:id/dependencies", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const { dependsOnTaskId, type = "depends_on" } = request.body;
+
+    if (!dependsOnTaskId) {
+      return reply.status(400).send({ error: "dependsOnTaskId is required" });
+    }
+
+    const success = await taskRepo.addDependency(request.params.id, dependsOnTaskId, type);
+
+    if (!success) {
+      return reply.status(400).send({
+        error: "Failed to add dependency. Check if both tasks exist and if this would create a circular dependency.",
+      });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  fastify.delete<{
+    Params: { id: string; dependsOnTaskId: string };
+  }>("/api/tasks/:id/dependencies/:dependsOnTaskId", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const success = await taskRepo.removeDependency(
+      request.params.id,
+      request.params.dependsOnTaskId
+    );
+
+    if (!success) {
+      return reply.status(404).send({ error: "Dependency not found" });
+    }
+
+    return reply.send({ success: true });
+  });
+
+  fastify.get<{ Params: { id: string } }>("/api/tasks/:id/dependencies-met", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const taskRepo = new TaskRepository(deps);
+
+    const met = await taskRepo.areDependenciesMet(request.params.id);
+    return reply.send({ met });
+  });
+
   // Pending Actions (Approvals)
   fastify.get("/api/actions/pending", async () => {
     return approvalQueue.getPending();
