@@ -156,6 +156,12 @@ const api = useApi();
 const toast = useToast();
 const { user: authUser, isAuthenticated, logout } = useAuth();
 
+// Enable WebSocket toast notifications (important events only by default)
+useWebSocketToast({
+  enabled: true,
+  importantEventsOnly: true,
+});
+
 async function handleLogout() {
   await logout();
   navigateTo("/login");
