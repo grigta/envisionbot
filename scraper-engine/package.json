@@ -1,0 +1,59 @@
+{
+  "name": "scraper-engine",
+  "version": "1.0.0",
+  "description": "AI-powered web scraper for competitive analysis and guerrilla marketing",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./crawler": {
+      "import": "./dist/crawler/index.js",
+      "types": "./dist/crawler/index.d.ts"
+    },
+    "./analyzer": {
+      "import": "./dist/analyzer/index.js",
+      "types": "./dist/analyzer/index.d.ts"
+    },
+    "./ai": {
+      "import": "./dist/ai/index.js",
+      "types": "./dist/ai/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "cheerio": "^1.0.0",
+    "crawlee": "^3.12.0",
+    "playwright": "^1.40.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/turndown": "^5.0.5",
+    "typescript": "^5.6.0"
+  },
+  "keywords": [
+    "scraper",
+    "crawler",
+    "competitive-analysis",
+    "seo",
+    "tech-stack",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT"
+}
