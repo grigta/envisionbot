@@ -118,6 +118,48 @@ export class TaskRepository extends BaseRepository<Task> {
     return undefined;
   }
 
+  /**
+   * Find next executable task from backlog
+   * Returns task with highest priority that is approved and in backlog
+   */
+  async findNextExecutableTask(): Promise<Task | null> {
+    const sql = `
+      SELECT * FROM tasks
+      WHERE status = 'approved'
+        AND kanban_status IN ('backlog', 'not_started')
+      ORDER BY
+        CASE priority
+          WHEN 'critical' THEN 1
+          WHEN 'high' THEN 2
+          WHEN 'medium' THEN 3
+          WHEN 'low' THEN 4
+          ELSE 5
+        END,
+        generated_at ASC
+      LIMIT 1
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const row = stmt.get() as TaskRow | undefined;
+
+    if (row) {
+      return this.rowToTask(row);
+    }
+
+    return null;
+  }
+
+  /**
+   * Update specific fields of a task
+   */
+  async update(id: string, updates: Partial<Task>): Promise<Task | undefined> {
+    const task = await this.getById(id);
+    if (!task) return undefined;
+
+    const updatedTask = { ...task, ...updates };
+    return this.upsert(updatedTask);
+  }
+
   async upsert(task: Task): Promise<Task> {
     const stmt = this.db.prepare(`
       INSERT INTO tasks (

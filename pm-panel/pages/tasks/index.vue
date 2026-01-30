@@ -105,6 +105,14 @@
             <div class="flex gap-2 flex-shrink-0">
               <button
                 v-if="task.status === 'pending'"
+                @click="approveTask(task.id)"
+                class="btn btn-primary text-xs py-1.5 px-3"
+              >
+                <UIcon name="i-heroicons-check-circle" class="w-4 h-4" />
+                Approve
+              </button>
+              <button
+                v-if="task.status === 'approved' || task.status === 'pending'"
                 @click="markCompleted(task.id)"
                 class="btn btn-success text-xs py-1.5 px-3"
               >
@@ -186,6 +194,24 @@ async function markCompleted(id: string) {
     toast.add({
       title: "Error",
       description: "Failed to update task",
+      color: "red",
+    });
+  }
+}
+
+async function approveTask(id: string) {
+  try {
+    await api.updateTaskStatus(id, "approved");
+    toast.add({
+      title: "Success",
+      description: "Task approved - will be executed automatically",
+      color: "green",
+    });
+    await fetchData();
+  } catch {
+    toast.add({
+      title: "Error",
+      description: "Failed to approve task",
       color: "red",
     });
   }
