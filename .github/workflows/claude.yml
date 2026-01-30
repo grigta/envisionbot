@@ -41,14 +41,78 @@ jobs:
           additional_permissions: |
             actions: read
 
-          # Auto-create PR after completing the task
-          claude_args: '--create-pr'
-
-      # Auto-merge PR if it was created
-      - name: Enable auto-merge for PR
-        if: steps.claude.outputs.pr_number
+      - name: Check for changes and create PR
+        if: success()
         run: |
-          gh pr merge ${{ steps.claude.outputs.pr_number }} --auto --squash --delete-branch
+          # Get current branch name
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: $CURRENT_BRANCH"
+
+          # Check if we're on a claude/ branch
+          if [[ ! "$CURRENT_BRANCH" =~ ^claude/ ]]; then
+            echo "Not on a claude/ branch, skipping PR creation"
+            exit 0
+          fi
+
+          # Push the branch
+          git push origin "$CURRENT_BRANCH" || echo "Branch already pushed"
+
+          # Check if there are changes compared to main
+          if git diff --quiet origin/main..HEAD; then
+            echo "No changes detected, skipping PR creation"
+            exit 0
+          fi
+
+          # Get issue number from branch name (e.g., claude/issue-4-20260129 -> 4)
+          ISSUE_NUMBER=$(echo "$CURRENT_BRANCH" | grep -oP 'issue-\K\d+' || echo "")
+
+          if [ -z "$ISSUE_NUMBER" ]; then
+            echo "Could not extract issue number from branch name"
+            exit 0
+          fi
+
+          # Get issue title
+          ISSUE_TITLE=$(gh issue view "$ISSUE_NUMBER" --json title --jq '.title')
+
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --json number --jq '.[0].number' || echo "")
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR already exists: #$EXISTING_PR"
+            echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+          else
+            # Create PR
+            PR_URL=$(gh pr create \
+              --title "Fix: $ISSUE_TITLE" \
+              --body "Automatically resolves #$ISSUE_NUMBER
+
+          ## Changes
+          This PR was automatically created by Claude Code to resolve the issue.
+
+          ## Testing
+          - [x] Code changes implemented
+          - [x] Ready for review
+
+          Closes #$ISSUE_NUMBER" \
+              --base main \
+              --head "$CURRENT_BRANCH" \
+              --label "automated" \
+              --label "claude-generated")
+
+            # Extract PR number from URL
+            PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K\d+')
+            echo "Created PR #$PR_NUMBER: $PR_URL"
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: success() && steps.claude.outputs.pr_number
+        run: |
+          PR_NUMBER="${{ steps.claude.outputs.pr_number }}"
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          echo "Auto-merge enabled for PR #$PR_NUMBER"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
