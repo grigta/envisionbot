@@ -4,6 +4,11 @@ export interface WSEvent {
   data: unknown;
 }
 
+type WSEventHandler = (event: WSEvent) => void;
+
+// Global state for subscribers (shared across all composable instances)
+const subscribers = new Set<WSEventHandler>();
+
 export function useWebSocket() {
   const config = useRuntimeConfig();
   const baseUrl = config.public.apiBaseUrl;
@@ -43,6 +48,15 @@ export function useWebSocket() {
           const data = JSON.parse(event.data) as WSEvent;
           lastEvent.value = data;
           events.value = [data, ...events.value.slice(0, maxEvents - 1)];
+
+          // Notify all subscribers
+          subscribers.forEach((handler) => {
+            try {
+              handler(data);
+            } catch (err) {
+              console.error("WebSocket subscriber error:", err);
+            }
+          });
         } catch (error) {
           console.error("Failed to parse WebSocket message:", error);
         }
@@ -87,6 +101,16 @@ export function useWebSocket() {
     });
   }
 
+  // Subscribe to all WebSocket events
+  function subscribe(handler: WSEventHandler) {
+    subscribers.add(handler);
+  }
+
+  // Unsubscribe from WebSocket events
+  function unsubscribe(handler: WSEventHandler) {
+    subscribers.delete(handler);
+  }
+
   // Clear events
   function clearEvents() {
     events.value = [];
@@ -109,6 +133,8 @@ export function useWebSocket() {
     disconnect,
     getEventsByType,
     onEvent,
+    subscribe,
+    unsubscribe,
     clearEvents,
   };
 }

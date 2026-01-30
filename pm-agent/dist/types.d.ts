@@ -28,11 +28,11 @@ export interface Task {
     approvedBy?: "telegram" | "web" | "auto";
     generatedBy?: GeneratedBy;
 }
-export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification";
+export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";
 export type Priority = "critical" | "high" | "medium" | "low";
 export type TaskStatus = "pending" | "approved" | "rejected" | "in_progress" | "completed" | "failed";
-export type KanbanStatus = "not_started" | "backlog";
-export type GeneratedBy = "health_check" | "deep_analysis" | "manual" | "chat";
+export type KanbanStatus = "not_started" | "backlog" | "in_progress" | "review" | "done";
+export type GeneratedBy = "health_check" | "deep_analysis" | "manual" | "chat" | "plan_sync";
 export interface SuggestedAction {
     type: "create_issue" | "comment_issue" | "create_pr" | "merge_pr" | "close_issue" | "notify" | "custom";
     description: string;
@@ -120,7 +120,7 @@ export interface ToolResult {
     requiresApproval?: boolean;
     pendingActionId?: string;
 }
-export type WSEventType = "connected" | "task_created" | "task_updated" | "action_pending" | "action_approved" | "action_rejected" | "analysis_started" | "analysis_completed" | "agent_log" | "idea_created" | "idea_updated" | "idea_plan_ready" | "idea_launched" | "agent_session_start" | "agent_step" | "agent_session_end" | "chat_start" | "chat_step" | "chat_complete";
+export type WSEventType = "connected" | "task_created" | "task_updated" | "action_pending" | "action_approved" | "action_rejected" | "analysis_started" | "analysis_completed" | "agent_log" | "idea_created" | "idea_updated" | "idea_plan_ready" | "idea_launched" | "agent_session_start" | "agent_step" | "agent_session_end" | "chat_start" | "chat_step" | "chat_complete" | "analysis_progress" | "plan_updated" | "plan_task_synced";
 export interface WSEvent {
     type: WSEventType;
     timestamp: number;
@@ -157,5 +157,61 @@ export interface PlannedFeature {
     name: string;
     description: string;
     priority: "core" | "important" | "nice-to-have";
+}
+export interface ProjectPlan {
+    id: string;
+    projectId: string;
+    markdown: string;
+    version: number;
+    generatedAt: number;
+    updatedAt: number;
+    analysisSummary?: string;
+    sections?: PlanSection[];
+}
+export interface PlanVersion {
+    id: string;
+    planId: string;
+    version: number;
+    markdown: string;
+    analysisSummary?: string;
+    changeSummary?: string;
+    createdAt: number;
+}
+export interface PlanSection {
+    id: string;
+    title: string;
+    type: "overview" | "current_state" | "roadmap" | "technical_debt" | "risks" | "notes";
+    items: PlanItem[];
+}
+export interface PlanItem {
+    id: string;
+    content: string;
+    completed: boolean;
+    taskId?: string;
+    priority?: "critical" | "high" | "medium" | "low";
+    phase?: string;
+}
+export interface AnalysisStatus {
+    projectId: string;
+    status: "idle" | "cloning" | "analyzing" | "generating" | "syncing" | "completed" | "failed";
+    progress: number;
+    currentStep?: string;
+    error?: string;
+    startedAt?: number;
+    completedAt?: number;
+}
+export interface CodebaseAnalysisResult {
+    implemented: string[];
+    missing: string[];
+    technicalDebt: string[];
+    risks: string[];
+    suggestedTasks: Array<{
+        title: string;
+        description: string;
+        priority: "critical" | "high" | "medium" | "low";
+        type: TaskType;
+        phase?: string;
+    }>;
+    notes: string;
 }
 //# sourceMappingURL=types.d.ts.map

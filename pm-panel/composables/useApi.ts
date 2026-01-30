@@ -1,19 +1,42 @@
 export function useApi() {
   const config = useRuntimeConfig();
   const baseUrl = config.public.apiBaseUrl;
+  const { token, clearAuth } = useAuth();
 
   async function fetchApi<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${baseUrl}${endpoint}`;
+
+    // Build headers with auth token
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+    };
+
+    // Only set Content-Type if there's a body
+    if (options.body) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    // Add auth header if token exists
+    if (token.value) {
+      headers["Authorization"] = `Bearer ${token.value}`;
+    }
+
     const response = await fetch(url, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
     });
+
+    // Handle 401 - token expired or invalid
+    if (response.status === 401) {
+      if (import.meta.client) {
+        clearAuth();
+        navigateTo("/login");
+      }
+      throw new Error("Authentication required");
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: "Unknown error" }));
@@ -208,6 +231,161 @@ export function useApi() {
   const getPlanVersion = (projectId: string, version: number) =>
     fetchApi<PlanVersion>(`/api/projects/${projectId}/plan/versions/${version}`);
 
+  // News
+  const getNews = (filter?: { source?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filter?.source) params.set("source", filter.source);
+    if (filter?.limit) params.set("limit", String(filter.limit));
+    const query = params.toString();
+    return fetchApi<NewsItem[]>(`/api/news${query ? `?${query}` : ""}`);
+  };
+  const getNewsItem = (id: string) => fetchApi<NewsItem>(`/api/news/${id}`);
+  const triggerNewsCrawl = (options?: { fetchDetails?: boolean; limit?: number }) =>
+    fetchApi<{ status: string }>("/api/news/crawl", {
+      method: "POST",
+      body: JSON.stringify(options || {}),
+    });
+  const analyzeNewsItem = (id: string) =>
+    fetchApi<AIApplicationAnalysis>(`/api/news/${id}/analyze`, {
+      method: "POST",
+    });
+  const getNewsStats = () => fetchApi<NewsStats>("/api/news/stats");
+  const getNewsCrawlHistory = (limit?: number) => {
+    const params = new URLSearchParams();
+    if (limit) params.set("limit", String(limit));
+    const query = params.toString();
+    return fetchApi<CrawlHistory[]>(`/api/news/crawl/history${query ? `?${query}` : ""}`);
+  };
+
+  // Universal Crawler
+  const getCrawlerSources = (filter?: { enabled?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filter?.enabled !== undefined) params.set("enabled", String(filter.enabled));
+    const query = params.toString();
+    return fetchApi<CrawlerSource[]>(`/api/crawler/sources${query ? `?${query}` : ""}`);
+  };
+  const getCrawlerSource = (id: string) => fetchApi<CrawlerSource>(`/api/crawler/sources/${id}`);
+  const createCrawlerSource = (data: {
+    name: string;
+    url: string;
+    prompt?: string;
+    schema?: object;
+    requiresBrowser?: boolean;
+    crawlIntervalHours?: number;
+  }) =>
+    fetchApi<CrawlerSource>("/api/crawler/sources", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  const updateCrawlerSource = (id: string, data: Partial<CrawlerSource>) =>
+    fetchApi<CrawlerSource>(`/api/crawler/sources/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  const deleteCrawlerSource = (id: string) =>
+    fetchApi<{ success: boolean }>(`/api/crawler/sources/${id}`, { method: "DELETE" });
+  const testCrawlerSource = (data: {
+    url: string;
+    prompt?: string;
+    requiresBrowser?: boolean;
+    schema?: object;
+  }) =>
+    fetchApi<CrawlerTestResult>("/api/crawler/test", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  const runCrawlerSource = (id: string) =>
+    fetchApi<{ success: boolean; itemCount: number }>(`/api/crawler/sources/${id}/crawl`, {
+      method: "POST",
+    });
+  const getCrawledItems = (filter?: {
+    sourceId?: string;
+    projectId?: string;
+    processed?: boolean;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (filter?.sourceId) params.set("sourceId", filter.sourceId);
+    if (filter?.projectId) params.set("projectId", filter.projectId);
+    if (filter?.processed !== undefined) params.set("processed", String(filter.processed));
+    if (filter?.limit) params.set("limit", String(filter.limit));
+    const query = params.toString();
+    return fetchApi<CrawledItem[]>(`/api/crawler/items${query ? `?${query}` : ""}`);
+  };
+  const getCrawledItem = (id: string) => fetchApi<CrawledItem>(`/api/crawler/items/${id}`);
+  const getCrawlerStats = () => fetchApi<CrawlerStats>("/api/crawler/stats");
+
+  // Competitors
+  const getCompetitors = (filter?: { status?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filter?.status) params.set("status", filter.status);
+    if (filter?.limit) params.set("limit", String(filter.limit));
+    const query = params.toString();
+    return fetchApi<Competitor[]>(`/api/competitors${query ? `?${query}` : ""}`);
+  };
+  const getCompetitor = (id: string) => fetchApi<Competitor>(`/api/competitors/${id}`);
+  const createCompetitor = (data: { domain: string; name: string; description?: string; industry?: string }) =>
+    fetchApi<Competitor>("/api/competitors", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  const updateCompetitor = (id: string, data: Partial<Competitor>) =>
+    fetchApi<Competitor>(`/api/competitors/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  const deleteCompetitor = (id: string) =>
+    fetchApi<{ success: boolean }>(`/api/competitors/${id}`, { method: "DELETE" });
+  const startCompetitorCrawl = (id: string, config?: Partial<CompetitorCrawlConfig>) =>
+    fetchApi<{ status: string; jobId: string }>(`/api/competitors/${id}/crawl`, {
+      method: "POST",
+      body: JSON.stringify(config || {}),
+    });
+  const getCompetitorCrawlJob = (id: string, jobId: string) =>
+    fetchApi<CompetitorCrawlJob>(`/api/competitors/${id}/crawl/${jobId}`);
+  const getCompetitorPages = (id: string, filter?: { path?: string; depth?: number; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filter?.path) params.set("path", filter.path);
+    if (filter?.depth !== undefined) params.set("depth", String(filter.depth));
+    if (filter?.limit) params.set("limit", String(filter.limit));
+    const query = params.toString();
+    return fetchApi<CompetitorPage[]>(`/api/competitors/${id}/pages${query ? `?${query}` : ""}`);
+  };
+  const getCompetitorTechStack = (id: string) =>
+    fetchApi<CompetitorTechStackItem[]>(`/api/competitors/${id}/tech-stack`);
+  const getCompetitorStructure = (id: string) =>
+    fetchApi<CompetitorSiteStructure>(`/api/competitors/${id}/structure`);
+  const analyzeCompetitor = (id: string, analysisType: string) =>
+    fetchApi<CompetitorAnalysis>(`/api/competitors/${id}/analyze`, {
+      method: "POST",
+      body: JSON.stringify({ analysisType }),
+    });
+  const getCompetitorAnalysis = (id: string, type?: string) => {
+    const params = type ? `?type=${type}` : "";
+    return fetchApi<CompetitorAnalysis>(`/api/competitors/${id}/analysis${params}`);
+  };
+  const generateCompetitorReport = (
+    competitorIds: string[],
+    reportType: "single" | "comparison" | "market_overview",
+    format: "json" | "markdown" | "html",
+    title?: string
+  ) =>
+    fetchApi<CompetitorReport>("/api/competitors/reports", {
+      method: "POST",
+      body: JSON.stringify({ competitorIds, reportType, format, title }),
+    });
+  const getCompetitorReports = (filter?: { type?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (filter?.type) params.set("type", filter.type);
+    if (filter?.limit) params.set("limit", String(filter.limit));
+    const query = params.toString();
+    return fetchApi<CompetitorReport[]>(`/api/competitors/reports${query ? `?${query}` : ""}`);
+  };
+  const getCompetitorReport = (reportId: string) =>
+    fetchApi<CompetitorReport>(`/api/competitors/reports/${reportId}`);
+  const deleteCompetitorReport = (reportId: string) =>
+    fetchApi<{ success: boolean }>(`/api/competitors/reports/${reportId}`, { method: "DELETE" });
+
   return {
     // Projects
     getProjects,
@@ -262,6 +440,41 @@ export function useApi() {
     syncTasksFromPlan,
     getPlanVersions,
     getPlanVersion,
+    // News (legacy)
+    getNews,
+    getNewsItem,
+    triggerNewsCrawl,
+    analyzeNewsItem,
+    getNewsStats,
+    getNewsCrawlHistory,
+    // Universal Crawler
+    getCrawlerSources,
+    getCrawlerSource,
+    createCrawlerSource,
+    updateCrawlerSource,
+    deleteCrawlerSource,
+    testCrawlerSource,
+    runCrawlerSource,
+    getCrawledItems,
+    getCrawledItem,
+    getCrawlerStats,
+    // Competitors
+    getCompetitors,
+    getCompetitor,
+    createCompetitor,
+    updateCompetitor,
+    deleteCompetitor,
+    startCompetitorCrawl,
+    getCompetitorCrawlJob,
+    getCompetitorPages,
+    getCompetitorTechStack,
+    getCompetitorStructure,
+    analyzeCompetitor,
+    getCompetitorAnalysis,
+    generateCompetitorReport,
+    getCompetitorReports,
+    getCompetitorReport,
+    deleteCompetitorReport,
   };
 }
 
@@ -278,7 +491,7 @@ export interface Project {
   updatedAt: number;
 }
 
-export type KanbanStatus = "not_started" | "backlog";
+export type KanbanStatus = "not_started" | "backlog" | "in_progress" | "review" | "done";
 export type GeneratedBy = "health_check" | "deep_analysis" | "manual" | "chat";
 
 export interface Task {
@@ -459,4 +672,307 @@ export interface PlanVersion {
   analysisSummary?: string;
   changeSummary?: string;
   createdAt: number;
+}
+
+// News types
+export type NewsSource = "GitHub" | "HuggingFace" | "Replicate" | "Reddit";
+
+export interface NewsItemDetails {
+  fullDescription?: string;
+  technologies?: string[];
+  useCases?: string[];
+  author?: string;
+  createdAt?: string;
+  lastUpdated?: string;
+  license?: string;
+  topics?: string[];
+  readmePreview?: string;
+}
+
+export interface AIApplicationAnalysis {
+  summary?: string;
+  applications: string[];
+  projectIdeas: string[];
+  targetAudience: string[];
+  integrations: string[];
+  analyzedAt: number;
+}
+
+export interface NewsItem {
+  id: string;
+  rank: number;
+  title: string;
+  url: string;
+  source: NewsSource;
+  metric: string;
+  metricValue: number;
+  description?: string;
+  details?: NewsItemDetails;
+  aiAnalysis?: AIApplicationAnalysis;
+  crawledAt: number;
+  updatedAt: number;
+  isActive: boolean;
+}
+
+export interface CrawlHistory {
+  id?: number;
+  startedAt: number;
+  completedAt?: number;
+  status: "running" | "completed" | "failed";
+  itemsFound: number;
+  itemsUpdated?: number;
+  itemsNew?: number;
+  errors?: string[];
+  durationMs?: number;
+}
+
+export interface NewsStats {
+  totalItems: number;
+  activeItems: number;
+  bySource: Record<NewsSource, number>;
+  lastCrawl?: CrawlHistory;
+  analyzedCount: number;
+}
+
+// Competitor types
+export type CompetitorStatus = "pending" | "crawling" | "crawled" | "analyzing" | "analyzed" | "error";
+
+export interface Competitor {
+  id: string;
+  name: string;
+  domain: string;
+  description?: string;
+  industry?: string;
+  status: CompetitorStatus;
+  createdAt: number;
+  updatedAt: number;
+  lastCrawledAt?: number;
+  lastAnalyzedAt?: number;
+}
+
+export interface CompetitorCrawlConfig {
+  maxDepth?: number;
+  maxPages?: number;
+  crawlSitemap?: boolean;
+  respectRobotsTxt?: boolean;
+  requestsPerMinute?: number;
+  maxConcurrency?: number;
+  proxyUrls?: string[];
+  userAgent?: string;
+  delayMin?: number;
+  delayMax?: number;
+}
+
+export type CompetitorCrawlJobStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface CompetitorCrawlJob {
+  id: string;
+  competitorId: string;
+  status: CompetitorCrawlJobStatus;
+  config: CompetitorCrawlConfig;
+  pagesFound: number;
+  pagesCrawled: number;
+  errors?: Array<{ url: string; message: string }>;
+  startedAt?: number;
+  completedAt?: number;
+  durationMs?: number;
+}
+
+export interface CompetitorPageSEO {
+  title?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+  canonicalUrl?: string;
+  robots?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  ogImage?: string;
+  schemaTypes?: string[];
+  hasStructuredData?: boolean;
+}
+
+export interface CompetitorPageHeadings {
+  h1: string[];
+  h2: string[];
+  h3: string[];
+  h4: string[];
+  h5: string[];
+  h6: string[];
+}
+
+export interface CompetitorPage {
+  id: string;
+  competitorId: string;
+  crawlJobId?: string;
+  url: string;
+  path: string;
+  depth: number;
+  statusCode?: number;
+  contentType?: string;
+  seo?: CompetitorPageSEO;
+  headings?: CompetitorPageHeadings;
+  images?: Array<{ src: string; alt?: string; isLazyLoaded?: boolean }>;
+  links?: Array<{ href: string; text: string; isExternal: boolean; isNofollow: boolean }>;
+  wordCount?: number;
+  textContent?: string;
+  responseTimeMs?: number;
+  crawledAt: number;
+}
+
+export type TechCategory =
+  | "cms"
+  | "ecommerce"
+  | "framework"
+  | "css"
+  | "analytics"
+  | "marketing"
+  | "chat"
+  | "cdn"
+  | "hosting"
+  | "payment"
+  | "other";
+
+export interface CompetitorTechStackItem {
+  id?: number;
+  competitorId: string;
+  category: TechCategory;
+  name: string;
+  version?: string;
+  confidence: number;
+  evidence?: string[];
+  detectedAt: number;
+}
+
+export interface CompetitorSiteStructureNode {
+  path: string;
+  name: string;
+  depth: number;
+  pageCount: number;
+  children: CompetitorSiteStructureNode[];
+}
+
+export interface CompetitorSiteStructure {
+  competitorId: string;
+  root: CompetitorSiteStructureNode;
+  totalPages: number;
+  maxDepth: number;
+  patterns: {
+    hasBlog: boolean;
+    hasProducts: boolean;
+    hasDocs: boolean;
+    hasCategories: boolean;
+  };
+  analyzedAt: number;
+}
+
+export interface CompetitorPositioning {
+  valueProposition: string;
+  targetAudience: string[];
+  keyMessages: string[];
+  tone: string;
+  uniqueSellingPoints: string[];
+}
+
+export interface CompetitorSWOT {
+  strengths: Array<{ point: string; evidence: string }>;
+  weaknesses: Array<{ point: string; evidence: string }>;
+  opportunities: Array<{ point: string; rationale: string }>;
+  threats: Array<{ point: string; rationale: string }>;
+}
+
+export type RecommendationPriority = "critical" | "high" | "medium" | "low";
+export type RecommendationCategory = "seo" | "content" | "technical" | "marketing" | "ux" | "positioning";
+export type EffortLevel = "low" | "medium" | "high";
+export type ImpactLevel = "low" | "medium" | "high";
+
+export interface CompetitorRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  priority: RecommendationPriority;
+  category: RecommendationCategory;
+  effort: EffortLevel;
+  impact: ImpactLevel;
+  actionItems: string[];
+}
+
+export type CompetitorAnalysisType = "positioning" | "swot" | "recommendations" | "full";
+
+export interface CompetitorAnalysis {
+  id: string;
+  competitorId: string;
+  analysisType: CompetitorAnalysisType;
+  positioning?: CompetitorPositioning;
+  swot?: CompetitorSWOT;
+  recommendations?: CompetitorRecommendation[];
+  seoScore?: number;
+  seoIssues?: Array<{ type: string; severity: string; message: string; pages?: string[] }>;
+  modelUsed?: string;
+  tokensUsed?: number;
+  generatedAt: number;
+}
+
+export type CompetitorReportType = "single" | "comparison" | "market_overview";
+export type CompetitorReportFormat = "json" | "markdown" | "html";
+
+export interface CompetitorReport {
+  id: string;
+  competitorIds: string[];
+  reportType: CompetitorReportType;
+  format: CompetitorReportFormat;
+  title: string;
+  content: string;
+  createdAt: number;
+}
+
+// Universal Crawler types
+export interface CrawlerSource {
+  id: string;
+  name: string;
+  url: string;
+  prompt?: string;
+  schema?: object;
+  requiresBrowser: boolean;
+  crawlIntervalHours: number;
+  isEnabled: boolean;
+  lastCrawlAt?: number;
+  lastCrawlStatus?: "success" | "error";
+  lastCrawlItemCount?: number;
+  lastCrawlError?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CrawledItem {
+  id: string;
+  sourceId: string;
+  title: string;
+  url: string;
+  description?: string;
+  content?: string;
+  metadata: Record<string, unknown>;
+  extractedAt: number;
+  projectId?: string;
+  relevanceScore?: number;
+  isProcessed: boolean;
+}
+
+export interface CrawlerTestResult {
+  success: boolean;
+  items?: Array<{
+    id: string;
+    title: string;
+    url: string;
+    description?: string;
+  }>;
+  itemCount?: number;
+  error?: string;
+}
+
+export interface CrawlerStats {
+  totalSources: number;
+  enabledSources: number;
+  totalItems: number;
+  processedItems: number;
+  lastCrawlAt?: number;
 }

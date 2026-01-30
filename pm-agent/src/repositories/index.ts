@@ -12,3 +12,6 @@ export { IdeaRepository } from "./idea.repository.js";
 export { ChatRepository, type ChatSession, type ChatMessage } from "./chat.repository.js";
 export { StateRepository } from "./state.repository.js";
 export { PlanRepository } from "./plan.repository.js";
+export { NewsRepository } from "./news.repository.js";
+export { CrawlerRepository } from "./crawler.repository.js";
+export { CompetitorRepository } from "./competitor.repository.js";

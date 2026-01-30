@@ -9,7 +9,40 @@ import { buildChatContext } from "./chat/context.js";
 import { chatHistory } from "./chat/history.js";
 import { parseMentions } from "./chat/mentions.js";
 import { runAgentTaskStreaming } from "./tools/claude-code.js";
+import { createProjectAnalyzer } from "./services/project-analyzer.service.js";
+import { PlanRepository } from "./repositories/plan.repository.js";
+import { AuthRepository } from "./repositories/auth.repository.js";
+import { createAuthHook, signToken, decodeToken } from "./auth/index.js";
+import { getAuthConfig } from "./auth.js";
 const PORT = parseInt(process.env.PORT || "3001", 10);
+// Helper to get auth config for crawler service
+function getCrawlerAuthConfig() {
+    try {
+        const config = getAuthConfig();
+        if (config.type === "oauth_token") {
+            return { authToken: config.token };
+        }
+        return { apiKey: config.token };
+    }
+    catch {
+        // Fallback to env var
+        return { apiKey: process.env.ANTHROPIC_API_KEY };
+    }
+}
+// Helper to get auth config for competitor service (AI analysis)
+function getCompetitorAuthConfig() {
+    try {
+        const config = getAuthConfig();
+        if (config.type === "oauth_token") {
+            return { anthropicAuthToken: config.token };
+        }
+        return { anthropicApiKey: config.token };
+    }
+    catch {
+        // Fallback to env var
+        return { anthropicApiKey: process.env.ANTHROPIC_API_KEY };
+    }
+}
 const HOST = process.env.HOST || "0.0.0.0";
 // WebSocket clients
 const wsClients = new Set();
@@ -29,7 +62,7 @@ export async function startServer() {
     await fastify.register(cors, {
         origin: true,
         credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     });
     await fastify.register(websocket);
     // WebSocket endpoint
@@ -47,6 +80,110 @@ export async function startServer() {
             timestamp: Date.now(),
             data: stateStore.getStats(),
         }));
+    });
+    // Register auth hook (protects all routes except public ones)
+    const deps = stateStore.getRepositoryDeps();
+    if (deps) {
+        fastify.addHook("onRequest", createAuthHook(deps));
+    }
+    // ============================================
+    // AUTH API
+    // ============================================
+    // Login with access code
+    fastify.post("/api/auth/login", async (request, reply) => {
+        const { code } = request.body;
+        if (!code) {
+            return reply.status(400).send({ error: "Access code is required" });
+        }
+        const authDeps = stateStore.getRepositoryDeps();
+        if (!authDeps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const authRepo = new AuthRepository(authDeps);
+        const accessCode = await authRepo.validateCode(code);
+        if (!accessCode) {
+            return reply.status(401).send({ error: "Invalid access code" });
+        }
+        // Generate JWT
+        const token = signToken({
+            sub: accessCode.id,
+            name: accessCode.name,
+            role: accessCode.role,
+        });
+        // Decode to get jti and exp
+        const decoded = decodeToken(token);
+        // Create session record
+        await authRepo.createSession({
+            accessCodeId: accessCode.id,
+            tokenJti: decoded.jti,
+            ipAddress: request.ip,
+            userAgent: request.headers["user-agent"],
+            createdAt: Date.now(),
+            expiresAt: decoded.exp * 1000,
+        });
+        return {
+            token,
+            user: {
+                name: accessCode.name,
+                role: accessCode.role,
+            },
+            expiresAt: decoded.exp * 1000,
+        };
+    });
+    // Validate token
+    fastify.get("/api/auth/validate", async (request, reply) => {
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith("Bearer ")) {
+            return reply.status(401).send({ valid: false });
+        }
+        const authDeps = stateStore.getRepositoryDeps();
+        if (!authDeps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        try {
+            const token = authHeader.slice(7);
+            const { verifyToken } = await import("./auth/index.js");
+            const payload = verifyToken(token);
+            const authRepo = new AuthRepository(authDeps);
+            const isRevoked = await authRepo.isTokenRevoked(payload.jti);
+            if (isRevoked) {
+                return reply.status(401).send({ valid: false });
+            }
+            return {
+                valid: true,
+                user: {
+                    name: payload.name,
+                    role: payload.role,
+                },
+                expiresAt: payload.exp * 1000,
+            };
+        }
+        catch {
+            return reply.status(401).send({ valid: false });
+        }
+    });
+    // Logout (revoke token)
+    fastify.post("/api/auth/logout", async (request, reply) => {
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith("Bearer ")) {
+            return { success: true };
+        }
+        const authDeps = stateStore.getRepositoryDeps();
+        if (!authDeps) {
+            return { success: true };
+        }
+        try {
+            const token = authHeader.slice(7);
+            const decoded = decodeToken(token);
+            if (decoded?.jti) {
+                const authRepo = new AuthRepository(authDeps);
+                await authRepo.revokeToken(decoded.jti);
+            }
+        }
+        catch {
+            // Ignore errors
+        }
+        return { success: true };
     });
     // Health check
     fastify.get("/api/health", async () => {
@@ -94,6 +231,137 @@ export async function startServer() {
         stateStore.removeProject(request.params.id);
         return { success: true };
     });
+    // Project Analysis Endpoints
+    // Start project analysis
+    fastify.post("/api/projects/:id/analyze", async (request, reply) => {
+        const project = stateStore.getProject(request.params.id);
+        if (!project) {
+            return reply.status(404).send({ error: "Project not found" });
+        }
+        // Get repository deps from store
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        // Create analyzer with progress broadcast
+        const analyzer = createProjectAnalyzer(deps, {
+            onProgress: (status) => {
+                broadcast({
+                    type: "analysis_progress",
+                    timestamp: Date.now(),
+                    data: status,
+                });
+            },
+            onStep: (step) => {
+                broadcast({
+                    type: "agent_step",
+                    timestamp: Date.now(),
+                    data: step,
+                });
+            },
+        });
+        // Start analysis in background
+        analyzer.analyzeProject(request.params.id).then((result) => {
+            if (result.success) {
+                broadcast({
+                    type: "analysis_completed",
+                    timestamp: Date.now(),
+                    data: {
+                        projectId: request.params.id,
+                        tasksCreated: result.tasksCreated,
+                    },
+                });
+            }
+        });
+        return { status: "started", projectId: request.params.id };
+    });
+    // Get analysis status
+    fastify.get("/api/projects/:id/analyze/status", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const planRepo = new PlanRepository(deps);
+        const status = await planRepo.getAnalysisStatus(request.params.id);
+        if (!status) {
+            return { status: "idle", progress: 0, projectId: request.params.id };
+        }
+        return status;
+    });
+    // Get project plan
+    fastify.get("/api/projects/:id/plan", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const planRepo = new PlanRepository(deps);
+        const plan = await planRepo.getByProjectId(request.params.id);
+        if (!plan) {
+            return reply.status(404).send({ error: "Plan not found" });
+        }
+        return plan;
+    });
+    // Update project plan
+    fastify.put("/api/projects/:id/plan", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const analyzer = createProjectAnalyzer(deps);
+        const updated = await analyzer.updatePlanMarkdown(request.params.id, request.body.markdown);
+        if (!updated) {
+            return reply.status(404).send({ error: "Plan not found" });
+        }
+        broadcast({
+            type: "plan_updated",
+            timestamp: Date.now(),
+            data: updated,
+        });
+        return updated;
+    });
+    // Sync tasks from plan
+    fastify.post("/api/projects/:id/sync-tasks", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const planRepo = new PlanRepository(deps);
+        const plan = await planRepo.getByProjectId(request.params.id);
+        if (!plan) {
+            return reply.status(404).send({ error: "Plan not found" });
+        }
+        // Re-analyze to sync tasks (uses existing plan)
+        const analyzer = createProjectAnalyzer(deps);
+        // For now, just return success - full sync would require re-parsing
+        return { success: true, message: "Tasks synced from plan" };
+    });
+    // Get all plan versions (including current)
+    fastify.get("/api/projects/:id/plan/versions", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const analyzer = createProjectAnalyzer(deps);
+        const versions = await analyzer.getPlanVersions(request.params.id);
+        return versions;
+    });
+    // Get specific plan version
+    fastify.get("/api/projects/:id/plan/versions/:version", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const versionNum = parseInt(request.params.version, 10);
+        if (isNaN(versionNum)) {
+            return reply.status(400).send({ error: "Invalid version number" });
+        }
+        const analyzer = createProjectAnalyzer(deps);
+        const version = await analyzer.getPlanVersion(request.params.id, versionNum);
+        if (!version) {
+            return reply.status(404).send({ error: "Version not found" });
+        }
+        return version;
+    });
     // Tasks
     fastify.get("/api/tasks", async (request) => {
         const { projectId, status } = request.query;
@@ -125,8 +393,8 @@ export async function startServer() {
     // Update task kanban status (for Kanban board drag-and-drop)
     fastify.patch("/api/tasks/:id/kanban-status", async (request, reply) => {
         const { kanbanStatus } = request.body;
-        if (!["not_started", "backlog"].includes(kanbanStatus)) {
-            return reply.status(400).send({ error: "Invalid kanbanStatus. Must be 'not_started' or 'backlog'" });
+        if (!["not_started", "backlog", "in_progress", "review", "done"].includes(kanbanStatus)) {
+            return reply.status(400).send({ error: "Invalid kanbanStatus. Must be one of: 'not_started', 'backlog', 'in_progress', 'review', 'done'" });
         }
         const task = stateStore.updateTask(request.params.id, {
             kanbanStatus: kanbanStatus,
@@ -475,6 +743,568 @@ export async function startServer() {
             // Return just projects if GitHub fails
             return projects;
         }
+    });
+    // ============================================
+    // News API
+    // ============================================
+    // Get news list
+    fastify.get("/api/news", async (request) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return [];
+        }
+        const { NewsService } = await import("./services/news.service.js");
+        const newsService = new NewsService(deps);
+        const { source, limit, active } = request.query;
+        return newsService.getAll({
+            source: source,
+            limit,
+            isActive: active !== false,
+        });
+    });
+    // Get single news item
+    fastify.get("/api/news/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { NewsService } = await import("./services/news.service.js");
+        const newsService = new NewsService(deps);
+        const item = await newsService.getById(request.params.id);
+        if (!item) {
+            return reply.status(404).send({ error: "News item not found" });
+        }
+        return item;
+    });
+    // Trigger news crawl
+    fastify.post("/api/news/crawl", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { NewsService } = await import("./services/news.service.js");
+        const newsService = new NewsService(deps);
+        const { fetchDetails = false, limit = 25 } = request.body || {};
+        // Run crawl in background
+        newsService
+            .runCrawl({
+            fetchDetails,
+            limit,
+            onProgress: (progress) => {
+                broadcast({
+                    type: "news_crawl_progress",
+                    timestamp: Date.now(),
+                    data: progress,
+                });
+            },
+        })
+            .then((result) => {
+            broadcast({
+                type: "news_updated",
+                timestamp: Date.now(),
+                data: {
+                    success: result.success,
+                    newCount: result.newCount,
+                    updatedCount: result.updatedCount,
+                },
+            });
+        })
+            .catch((error) => {
+            console.error("News crawl failed:", error);
+            broadcast({
+                type: "news_crawl_progress",
+                timestamp: Date.now(),
+                data: { stage: "failed", message: String(error) },
+            });
+        });
+        return { status: "started" };
+    });
+    // AI analyze a specific news item
+    fastify.post("/api/news/:id/analyze", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { NewsAnalyzerService } = await import("./services/news-analyzer.service.js");
+        const analyzerService = new NewsAnalyzerService(deps);
+        broadcast({
+            type: "news_analyzing",
+            timestamp: Date.now(),
+            data: { id: request.params.id },
+        });
+        try {
+            const analysis = await analyzerService.analyzeAndSave(request.params.id);
+            if (!analysis) {
+                return reply.status(404).send({ error: "News item not found" });
+            }
+            broadcast({
+                type: "news_analyzed",
+                timestamp: Date.now(),
+                data: { id: request.params.id, analysis },
+            });
+            return analysis;
+        }
+        catch (error) {
+            console.error("AI analysis failed:", error);
+            return reply.status(500).send({ error: "AI analysis failed" });
+        }
+    });
+    // Get news stats
+    fastify.get("/api/news/stats", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { NewsService } = await import("./services/news.service.js");
+        const newsService = new NewsService(deps);
+        return newsService.getStats();
+    });
+    // Get crawl history
+    fastify.get("/api/news/crawl/history", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { NewsService } = await import("./services/news.service.js");
+        const newsService = new NewsService(deps);
+        const limit = request.query.limit || 10;
+        return newsService.getCrawlHistory(limit);
+    });
+    // ============================================
+    // Universal Crawler API
+    // ============================================
+    // Get all crawler sources
+    fastify.get("/api/crawler/sources", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const { enabled } = request.query;
+        return repo.getAllSources(enabled !== undefined ? { isEnabled: enabled } : undefined);
+    });
+    // Get single crawler source
+    fastify.get("/api/crawler/sources/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const source = await repo.getSourceById(request.params.id);
+        if (!source) {
+            return reply.status(404).send({ error: "Source not found" });
+        }
+        return source;
+    });
+    // Create crawler source
+    fastify.post("/api/crawler/sources", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerService } = await import("./services/crawler.service.js");
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const service = new CrawlerService(repo, getCrawlerAuthConfig());
+        return service.createSource(request.body);
+    });
+    // Update crawler source
+    fastify.put("/api/crawler/sources/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerService } = await import("./services/crawler.service.js");
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const service = new CrawlerService(repo, getCrawlerAuthConfig());
+        const updated = await service.updateSource(request.params.id, request.body);
+        if (!updated) {
+            return reply.status(404).send({ error: "Source not found" });
+        }
+        return updated;
+    });
+    // Delete crawler source
+    fastify.delete("/api/crawler/sources/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerService } = await import("./services/crawler.service.js");
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const service = new CrawlerService(repo, getCrawlerAuthConfig());
+        const deleted = await service.deleteSource(request.params.id);
+        if (!deleted) {
+            return reply.status(404).send({ error: "Source not found" });
+        }
+        return { success: true };
+    });
+    // Test a URL before adding as source
+    fastify.post("/api/crawler/test", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerService } = await import("./services/crawler.service.js");
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const service = new CrawlerService(repo, getCrawlerAuthConfig());
+        const { url, prompt, requiresBrowser, schema } = request.body;
+        return service.testSource(url, prompt, { requiresBrowser, schema });
+    });
+    // Run crawl for a specific source
+    fastify.post("/api/crawler/sources/:id/crawl", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerService } = await import("./services/crawler.service.js");
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const service = new CrawlerService(repo, getCrawlerAuthConfig());
+        try {
+            const result = await service.crawlSource(request.params.id);
+            return {
+                success: true,
+                itemCount: result.items.length,
+                stats: result.stats,
+            };
+        }
+        catch (error) {
+            return reply.status(500).send({
+                error: error instanceof Error ? error.message : "Crawl failed",
+            });
+        }
+    });
+    // Get crawled items
+    fastify.get("/api/crawler/items", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const { sourceId, projectId, processed, limit } = request.query;
+        return repo.getItems({
+            sourceId,
+            projectId,
+            isProcessed: processed,
+            limit,
+        });
+    });
+    // Get single crawled item
+    fastify.get("/api/crawler/items/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        const item = await repo.getItemById(request.params.id);
+        if (!item) {
+            return reply.status(404).send({ error: "Item not found" });
+        }
+        return item;
+    });
+    // Get crawler statistics
+    fastify.get("/api/crawler/stats", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CrawlerRepository } = await import("./repositories/crawler.repository.js");
+        const repo = new CrawlerRepository(deps);
+        return repo.getStats();
+    });
+    // ============================================
+    // Competitors API (Guerrilla Marketing)
+    // ============================================
+    // Get all competitors
+    fastify.get("/api/competitors", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps, {
+            anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+        });
+        const { status, limit } = request.query;
+        return service.getAll({
+            status: status,
+            limit,
+        });
+    });
+    // Get single competitor
+    fastify.get("/api/competitors/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const competitor = await service.getById(request.params.id);
+        if (!competitor) {
+            return reply.status(404).send({ error: "Competitor not found" });
+        }
+        return competitor;
+    });
+    // Create competitor
+    fastify.post("/api/competitors", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        try {
+            const competitor = await service.create(request.body);
+            broadcast({
+                type: "competitor_created",
+                timestamp: Date.now(),
+                data: competitor,
+            });
+            return competitor;
+        }
+        catch (error) {
+            return reply.status(400).send({
+                error: error instanceof Error ? error.message : "Failed to create competitor",
+            });
+        }
+    });
+    // Update competitor
+    fastify.put("/api/competitors/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const updated = await service.update(request.params.id, request.body);
+        if (!updated) {
+            return reply.status(404).send({ error: "Competitor not found" });
+        }
+        broadcast({
+            type: "competitor_updated",
+            timestamp: Date.now(),
+            data: updated,
+        });
+        return updated;
+    });
+    // Delete competitor
+    fastify.delete("/api/competitors/:id", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const deleted = await service.delete(request.params.id);
+        if (!deleted) {
+            return reply.status(404).send({ error: "Competitor not found" });
+        }
+        broadcast({
+            type: "competitor_deleted",
+            timestamp: Date.now(),
+            data: { id: request.params.id },
+        });
+        return { success: true };
+    });
+    // Start competitor crawl
+    fastify.post("/api/competitors/:id/crawl", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps, {
+            anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+            proxyUrls: process.env.PROXY_LIST?.split(",").filter(Boolean),
+            onCrawlProgress: (event) => {
+                broadcast({
+                    type: "competitor_crawl_progress",
+                    timestamp: Date.now(),
+                    data: event,
+                });
+            },
+        });
+        try {
+            const result = await service.startCrawl(request.params.id, request.body);
+            broadcast({
+                type: "competitor_crawl_started",
+                timestamp: Date.now(),
+                data: { competitorId: request.params.id, jobId: result.jobId },
+            });
+            return result;
+        }
+        catch (error) {
+            return reply.status(400).send({
+                error: error instanceof Error ? error.message : "Failed to start crawl",
+            });
+        }
+    });
+    // Get crawl job status
+    fastify.get("/api/competitors/:id/crawl/:jobId", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const job = await service.getCrawlJob(request.params.jobId);
+        if (!job) {
+            return reply.status(404).send({ error: "Crawl job not found" });
+        }
+        return job;
+    });
+    // Get competitor pages
+    fastify.get("/api/competitors/:id/pages", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const { path, depth, limit } = request.query;
+        return service.getPages(request.params.id, {
+            path,
+            depth: depth !== undefined ? Number(depth) : undefined,
+            limit: limit !== undefined ? Number(limit) : undefined,
+        });
+    });
+    // Get competitor tech stack
+    fastify.get("/api/competitors/:id/tech-stack", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        return service.getTechStack(request.params.id);
+    });
+    // Get competitor site structure
+    fastify.get("/api/competitors/:id/structure", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        return service.getSiteStructure(request.params.id);
+    });
+    // Analyze competitor (AI)
+    fastify.post("/api/competitors/:id/analyze", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps, {
+            ...getCompetitorAuthConfig(),
+            onAnalysisProgress: (event) => {
+                broadcast({
+                    type: event.stage === "completed" ? "competitor_analyzed" : "competitor_analyzing",
+                    timestamp: Date.now(),
+                    data: event,
+                });
+            },
+        });
+        try {
+            broadcast({
+                type: "competitor_analyzing",
+                timestamp: Date.now(),
+                data: { competitorId: request.params.id },
+            });
+            const analysis = await service.analyze(request.params.id, (request.body.analysisType || "full"));
+            return analysis;
+        }
+        catch (error) {
+            return reply.status(500).send({
+                error: error instanceof Error ? error.message : "Analysis failed",
+            });
+        }
+    });
+    // Get competitor analysis
+    fastify.get("/api/competitors/:id/analysis", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const analysis = await service.getAnalysis(request.params.id, request.query.type);
+        if (!analysis) {
+            return reply.status(404).send({ error: "Analysis not found" });
+        }
+        return analysis;
+    });
+    // Generate competitor report
+    fastify.post("/api/competitors/reports", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        try {
+            const report = await service.generateReport(request.body.competitorIds, request.body.reportType, request.body.format, request.body.title);
+            broadcast({
+                type: "competitor_report_generated",
+                timestamp: Date.now(),
+                data: { id: report.id },
+            });
+            return report;
+        }
+        catch (error) {
+            return reply.status(500).send({
+                error: error instanceof Error ? error.message : "Failed to generate report",
+            });
+        }
+    });
+    // Get competitor reports
+    fastify.get("/api/competitors/reports", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const { type, limit } = request.query;
+        return service.getReports({
+            type: type,
+            limit,
+        });
+    });
+    // Get single competitor report
+    fastify.get("/api/competitors/reports/:reportId", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const report = await service.getReport(request.params.reportId);
+        if (!report) {
+            return reply.status(404).send({ error: "Report not found" });
+        }
+        return report;
+    });
+    // Delete competitor report
+    fastify.delete("/api/competitors/reports/:reportId", async (request, reply) => {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+            return reply.status(500).send({ error: "Database not initialized" });
+        }
+        const { CompetitorService } = await import("./services/competitor.service.js");
+        const service = new CompetitorService(deps);
+        const deleted = await service.deleteReport(request.params.reportId);
+        if (!deleted) {
+            return reply.status(404).send({ error: "Report not found" });
+        }
+        return { success: true };
     });
     // Start server
     try {

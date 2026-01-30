@@ -13,7 +13,7 @@ export async function startTelegramBot() {
     bot = new Telegraf(TELEGRAM_BOT_TOKEN);
     // Start command
     bot.start((ctx) => {
-        ctx.reply(`👋 Welcome to PM Agent Bot!\n\nI'll notify you about pending actions and let you approve/reject them.\n\nCommands:\n/status - Agent status\n/pending - View pending actions\n/health - Run health check\n/analysis - Run deep analysis`, { parse_mode: "Markdown" });
+        ctx.reply(`👋 Welcome to Envision CEO Bot!\n\nI'll notify you about pending actions and let you approve/reject them.\n\nCommands:\n/status - Agent status\n/pending - View pending actions\n/health - Run health check\n/analysis - Run deep analysis`, { parse_mode: "Markdown" });
     });
     // Status command
     bot.command("status", async (ctx) => {
@@ -24,7 +24,7 @@ export async function startTelegramBot() {
         const lastDeepAnalysis = stats.lastDeepAnalysis
             ? new Date(stats.lastDeepAnalysis).toLocaleString()
             : "Never";
-        await ctx.reply(`📊 *PM Agent Status*\n\n` +
+        await ctx.reply(`📊 *Envision CEO Status*\n\n` +
             `📁 Projects: ${stats.projectCount}\n` +
             `📝 Tasks: ${stats.taskCount}\n` +
             `⏳ Pending actions: ${stats.pendingActionsCount}\n\n` +
@@ -138,7 +138,7 @@ async function sendActionApprovalMessage(ctx, actionId) {
     const action = approvalQueue.getAction(actionId);
     if (!action)
         return;
-    const message = await ctx.reply(`🤖 *PM Agent Action Request*\n\n` +
+    const message = await ctx.reply(`🤖 *Envision CEO Action Request*\n\n` +
         `Type: ${action.action.type}\n` +
         `Description: ${action.action.description}\n\n` +
         `Expires: ${new Date(action.expiresAt).toLocaleString()}`, {

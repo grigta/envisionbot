@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../src/crawler/index.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAGH,cAAc,YAAY,CAAC;AAG3B,OAAO,EAAE,aAAa,EAAE,eAAe,EAAE,MAAM,mBAAmB,CAAC;AACnE,OAAO,EACL,gBAAgB,EAChB,iBAAiB,EACjB,iBAAiB,EACjB,UAAU,GACX,MAAM,qBAAqB,CAAC;AAG7B,OAAO,EACL,eAAe,EACf,gBAAgB,EAChB,cAAc,EACd,WAAW,EACX,kBAAkB,GACnB,MAAM,oBAAoB,CAAC"}

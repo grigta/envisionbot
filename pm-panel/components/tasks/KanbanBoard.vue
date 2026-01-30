@@ -51,6 +51,9 @@ const emit = defineEmits<{
 const columns: { id: KanbanStatus; title: string }[] = [
   { id: "not_started", title: "Не начато" },
   { id: "backlog", title: "Бэклог" },
+  { id: "in_progress", title: "В процессе" },
+  { id: "review", title: "На ревью" },
+  { id: "done", title: "Готово" },
 ];
 
 // Compute all projects with their task counts

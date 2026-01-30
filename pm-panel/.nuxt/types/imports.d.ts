@@ -103,6 +103,7 @@ declare global {
   const useAppConfig: typeof import('../../node_modules/nuxt/dist/app/config').useAppConfig
   const useAsyncData: typeof import('../../node_modules/nuxt/dist/app/composables/asyncData').useAsyncData
   const useAttrs: typeof import('../../node_modules/vue').useAttrs
+  const useAuth: typeof import('../../composables/useAuth').useAuth
   const useCarouselScroll: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useCarouselScroll').useCarouselScroll
   const useColorMode: typeof import('../../node_modules/@nuxtjs/color-mode/dist/runtime/composables').useColorMode
   const useCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').useCookie
@@ -203,7 +204,7 @@ declare global {
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from '../../node_modules/vue'
   import('../../node_modules/vue')
   // @ts-ignore
-  export type { Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo, AnalysisStatus, ProjectPlan, PlanVersion } from '../../composables/useApi'
+  export type { Project, KanbanStatus, GeneratedBy, Task, SuggestedAction, PendingAction, ProjectReport, AnalysisReport, Finding, Idea, IdeaPlan, ProjectStructure, PlannedFeature, ChatMessage, ChatSession, AgentStep, GitHubRepo, AnalysisStatus, ProjectPlan, PlanVersion, NewsSource, NewsItemDetails, AIApplicationAnalysis, NewsItem, CrawlHistory, NewsStats, CompetitorStatus, Competitor, CompetitorCrawlConfig, CompetitorCrawlJobStatus, CompetitorCrawlJob, CompetitorPageSEO, CompetitorPageHeadings, CompetitorPage, TechCategory, CompetitorTechStackItem, CompetitorSiteStructureNode, CompetitorSiteStructure, CompetitorPositioning, CompetitorSWOT, RecommendationPriority, RecommendationCategory, EffortLevel, ImpactLevel, CompetitorRecommendation, CompetitorAnalysisType, CompetitorAnalysis, CompetitorReportType, CompetitorReportFormat, CompetitorReport, CrawlerSource, CrawledItem, CrawlerTestResult, CrawlerStats } from '../../composables/useApi'
   import('../../composables/useApi')
   // @ts-ignore
   export type { Mentionable } from '../../composables/useMentions'
@@ -318,6 +319,7 @@ declare module 'vue' {
     readonly useAppConfig: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/config')['useAppConfig']>
     readonly useAsyncData: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/asyncData')['useAsyncData']>
     readonly useAttrs: UnwrapRef<typeof import('../../node_modules/vue')['useAttrs']>
+    readonly useAuth: UnwrapRef<typeof import('../../composables/useAuth')['useAuth']>
     readonly useCarouselScroll: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useCarouselScroll')['useCarouselScroll']>
     readonly useColorMode: UnwrapRef<typeof import('../../node_modules/@nuxtjs/color-mode/dist/runtime/composables')['useColorMode']>
     readonly useCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['useCookie']>

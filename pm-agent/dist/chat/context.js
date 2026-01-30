@@ -15,7 +15,7 @@ export function buildChatContext(message, projectId) {
         projectIds.push(projectId);
     }
     // Build the system context
-    let context = `Ты PM Agent ассистент. Помогаешь пользователю управлять его проектами.
+    let context = `Ты Envision CEO ассистент. Помогаешь пользователю управлять его проектами.
 
 ## Возможности
 
@@ -76,7 +76,7 @@ export function buildChatContext(message, projectId) {
  * Build a simpler prompt for quick queries
  */
 export function buildQuickQueryContext(query) {
-    return `You are a PM Agent assistant. Answer the following query concisely:
+    return `You are an Envision CEO assistant. Answer the following query concisely:
 
 ${query}
 

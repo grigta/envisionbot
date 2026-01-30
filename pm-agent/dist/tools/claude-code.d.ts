@@ -1,3 +1,4 @@
+import type { CodebaseAnalysisResult } from "../types.js";
 export interface ClaudeCodeResult {
     success: boolean;
     output: string;
@@ -110,6 +111,25 @@ export declare function planIdeaWithClaudeCode(idea: {
         estimatedFiles: number;
         repoNameSuggestion: string;
     };
+    error?: string;
+}>;
+/**
+ * Analyze a project's codebase and generate a development plan
+ * Uses Claude Code to understand the current state and suggest improvements
+ * Supports context from previous plan versions for continuity
+ */
+export declare function analyzeProjectCodebase(repoPath: string, project: {
+    name: string;
+    repo: string;
+    phase: string;
+}, onStep?: StreamCallback, previousPlan?: {
+    markdown: string;
+    version: number;
+    analysisSummary?: string;
+}): Promise<{
+    success: boolean;
+    planMarkdown?: string;
+    analysis?: CodebaseAnalysisResult;
     error?: string;
 }>;
 //# sourceMappingURL=claude-code.d.ts.map

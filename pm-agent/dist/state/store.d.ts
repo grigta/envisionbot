@@ -1,11 +1,30 @@
+/**
+ * Store - Database-backed state management
+ * Migrated from file-based JSON storage to SQLite + Redis
+ */
+import { type RepositoryDeps } from "../db/index.js";
 import type { Project, Task, PendingAction, ProjectMetrics, AnalysisReport, Idea } from "../types.js";
 declare class Store {
-    private state;
-    private saveTimeout;
+    private db;
+    private initialized;
+    private initPromise;
+    private _projects;
+    private _tasks;
+    private _actions;
+    private _metrics;
+    private _reports;
+    private _ideas;
+    private _chat;
+    private _state;
     constructor();
-    private load;
-    private scheduleSave;
-    save(): void;
+    private initialize;
+    private get projects();
+    private get tasks();
+    private get actions();
+    private get metrics();
+    private get reports();
+    private get ideas();
+    private get state();
     getProjects(): Project[];
     getProject(id: string): Project | undefined;
     getProjectByName(name: string): Project | undefined;
@@ -49,6 +68,9 @@ declare class Store {
         lastHealthCheck?: number;
         lastDeepAnalysis?: number;
     };
+    getRepositoryDeps(): RepositoryDeps | null;
+    save(): void;
+    close(): Promise<void>;
 }
 export declare const stateStore: Store;
 export declare const store: Store;

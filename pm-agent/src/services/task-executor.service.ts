@@ -37,8 +37,10 @@ export class TaskExecutorService {
 
     console.log(`[TaskExecutor] Found task #${task.id}: ${task.title}`);
 
-    // Mark as in_progress
-    await this.taskRepo.updateStatus(task.id, { status: "in_progress" });
+    // Mark as in_progress (status only - kanban_status stays as is until schema is updated)
+    await this.taskRepo.updateStatus(task.id, {
+      status: "in_progress"
+    });
 
     try {
       // Execute task

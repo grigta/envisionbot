@@ -5,7 +5,7 @@ import { startScheduler, stopScheduler } from "./scheduler.js";
 import { stateStore } from "./state/store.js";
 import { getAuthMethod, getAnthropicApiKey } from "./auth.js";
 async function main() {
-    console.log("🚀 Starting PM Agent...\n");
+    console.log("🚀 Starting Envision CEO...\n");
     // Check authentication
     const authMethod = getAuthMethod();
     if (authMethod === "none") {
@@ -47,21 +47,21 @@ async function main() {
         // Start scheduler
         startScheduler();
         console.log("");
-        console.log("✅ PM Agent is running!");
+        console.log("✅ Envision CEO is running!");
         console.log("");
         // Send startup notification
-        await sendNotification(`🚀 *PM Agent Started*\n\n` +
+        await sendNotification(`🚀 *Envision CEO Started*\n\n` +
             `Projects: ${stats.projectCount}\n` +
             `Tasks: ${stats.taskCount}\n` +
             `Pending actions: ${stats.pendingActionsCount}`);
     }
     catch (error) {
-        console.error("❌ Failed to start PM Agent:", error);
+        console.error("❌ Failed to start Envision CEO:", error);
         process.exit(1);
     }
     // Graceful shutdown
     const shutdown = async () => {
-        console.log("\n🛑 Shutting down PM Agent...");
+        console.log("\n🛑 Shutting down Envision CEO...");
         // Stop scheduler
         stopScheduler();
         // Save state

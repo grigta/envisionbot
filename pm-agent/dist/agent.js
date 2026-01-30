@@ -9,7 +9,7 @@ import { getAnthropicClientOptions } from "./auth.js";
 // Initialize client with auto-detected auth
 // Supports: ANTHROPIC_API_KEY env, CLAUDE_CODE_OAUTH_TOKEN env, or Claude Code keychain (subscription)
 const client = new Anthropic(getAnthropicClientOptions());
-const SYSTEM_PROMPT = `You are an autonomous Project Manager Agent acting as a CEO overseeing software projects.
+const SYSTEM_PROMPT = `You are Envision CEO, an autonomous agent acting as a CEO overseeing software projects.
 
 Your responsibilities:
 1. Monitor project health (CI/CD, issues, PRs, security)
@@ -343,27 +343,29 @@ export async function runHealthCheck() {
             description: `Checking ${projects.length} project(s)`,
         },
     });
-    const prompt = `You are a Project Manager Agent. Perform a quick health check on these projects:
+    const prompt = `Ты Project Manager Agent. Выполни быструю проверку здоровья этих проектов:
 
 ${projectsContext}
 
-For each project with a GitHub repo, analyze:
-1. Recent CI/CD status
-2. Critical or blocking issues
-3. Stale PRs
-4. Any immediate concerns
+Для каждого проекта с GitHub репозиторием проанализируй:
+1. Статус CI/CD
+2. Критические или блокирующие проблемы
+3. Устаревшие PR
+4. Любые срочные проблемы
 
-Use the GitHub CLI (gh) to get real data. Run commands like:
+Используй GitHub CLI (gh) для получения данных:
 - gh repo view {repo} --json description,issues,pullRequests
 - gh issue list -R {repo} --state open --limit 5
 - gh pr list -R {repo} --state open --limit 5
 - gh run list -R {repo} --limit 3
 
-Provide a concise summary of findings. Format as JSON:
+ВАЖНО: Все тексты (summary, issues, описания) должны быть на РУССКОМ языке.
+
+Верни результат в формате JSON:
 {
-  "summary": "Brief overall status",
+  "summary": "Краткий общий статус на русском",
   "findings": [
-    {"project": "name", "status": "healthy|warning|critical", "issues": ["issue 1", "issue 2"]}
+    {"project": "name", "status": "healthy|warning|critical", "issues": ["проблема 1", "проблема 2"]}
   ]
 }`;
     try {
@@ -450,31 +452,33 @@ export async function runDeepAnalysis() {
             description: `Analyzing ${projects.length} project(s) in detail`,
         },
     });
-    const prompt = `You are a Project Manager Agent acting as CEO. Perform a comprehensive analysis of these projects:
+    const prompt = `Ты Project Manager Agent в роли CEO. Выполни комплексный анализ этих проектов:
 
 ${JSON.stringify(projectsContext, null, 2)}
 
-For each project:
-1. Use GitHub CLI to get detailed info: gh repo view, gh issue list, gh pr list, gh run list
-2. Analyze open issues and PRs
-3. Check CI/CD status and recent failures
-4. Evaluate progress toward project goals
-5. Identify risks and blockers
-6. Suggest prioritized tasks
+Для каждого проекта:
+1. Используй GitHub CLI для получения информации: gh repo view, gh issue list, gh pr list, gh run list
+2. Проанализируй открытые issues и PR
+3. Проверь статус CI/CD и недавние сбои
+4. Оцени прогресс к целям проекта
+5. Выяви риски и блокеры
+6. Предложи приоритизированные задачи
 
-Provide actionable insights. Format as JSON:
+ВАЖНО: Все тексты (summary, risks, title, description задач) должны быть на РУССКОМ языке.
+
+Верни результат в формате JSON:
 {
-  "summary": "Executive summary of all projects",
+  "summary": "Общее резюме всех проектов на русском",
   "projects": [
     {
-      "name": "project name",
+      "name": "название проекта",
       "healthScore": 85,
       "openIssues": 5,
       "openPRs": 2,
       "ciStatus": "passing|failing",
-      "risks": ["risk 1"],
+      "risks": ["риск 1 на русском"],
       "recommendedTasks": [
-        {"title": "Task title", "priority": "high|medium|low", "description": "What to do"}
+        {"title": "Название задачи на русском", "priority": "high|medium|low", "description": "Описание на русском"}
       ]
     }
   ]
@@ -651,7 +655,7 @@ export async function launchIdea(ideaId, repoName, isPrivate) {
         // Step 3: Commit and push
         try {
             await execa("git", ["add", "."], { cwd: repoPath });
-            await execa("git", ["commit", "-m", "Initial project setup by PM Agent\n\nGenerated from idea: " + idea.title], {
+            await execa("git", ["commit", "-m", "Initial project setup by Envision CEO\n\nGenerated from idea: " + idea.title], {
                 cwd: repoPath,
             });
             await execa("git", ["push", "-u", "origin", "main"], { cwd: repoPath });

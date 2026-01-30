@@ -36,7 +36,7 @@ export interface Task {
 export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";
 export type Priority = "critical" | "high" | "medium" | "low";
 export type TaskStatus = "pending" | "approved" | "rejected" | "in_progress" | "completed" | "failed";
-export type KanbanStatus = "not_started" | "backlog";
+export type KanbanStatus = "not_started" | "backlog" | "in_progress" | "review" | "done";
 export type GeneratedBy = "health_check" | "deep_analysis" | "manual" | "chat" | "plan_sync";
 
 export interface SuggestedAction {

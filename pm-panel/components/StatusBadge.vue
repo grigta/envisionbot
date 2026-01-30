@@ -22,7 +22,19 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   completed: { label: "Completed", class: "bg-green-500/20 text-green-400" },
   failed: { label: "Failed", class: "bg-red-500/20 text-red-400" },
   pending: { label: "Pending", class: "bg-gray-500/20 text-gray-400" },
+  rejected: { label: "Rejected", class: "bg-red-500/20 text-red-400" },
   in_progress: { label: "In Progress", class: "bg-cyan-500/20 text-cyan-400" },
+  // Kanban statuses
+  not_started: { label: "Not Started", class: "bg-gray-500/20 text-gray-400" },
+  backlog: { label: "Backlog", class: "bg-yellow-500/20 text-yellow-400" },
+  review: { label: "Review", class: "bg-purple-500/20 text-purple-400" },
+  done: { label: "Done", class: "bg-green-500/20 text-green-400" },
+  // Competitor statuses
+  crawling: { label: "Crawling", class: "bg-blue-500/20 text-blue-400" },
+  crawled: { label: "Crawled", class: "bg-cyan-500/20 text-cyan-400" },
+  analyzing: { label: "Analyzing", class: "bg-purple-500/20 text-purple-400" },
+  analyzed: { label: "Analyzed", class: "bg-green-500/20 text-green-400" },
+  error: { label: "Error", class: "bg-red-500/20 text-red-400" },
   // Project phases
   idea: { label: "Idea", class: "bg-gray-500/20 text-gray-400" },
   mvp: { label: "MVP", class: "bg-cyan-500/20 text-cyan-400" },

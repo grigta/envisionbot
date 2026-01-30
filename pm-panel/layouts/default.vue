@@ -65,9 +65,19 @@
 
       <!-- User/Status section -->
       <div class="p-3 border-t border-[#2d2d2d]">
-        <div class="flex items-center gap-2 text-sm text-gray-400">
-          <div class="w-2 h-2 rounded-full" :class="wsConnected ? 'bg-green-500' : 'bg-red-500'" />
-          <span>{{ wsConnected ? 'Connected' : 'Disconnected' }}</span>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-sm text-gray-400">
+            <div class="w-2 h-2 rounded-full" :class="wsConnected ? 'bg-green-500' : 'bg-red-500'" />
+            <span>{{ authUser?.name || (wsConnected ? 'Connected' : 'Disconnected') }}</span>
+          </div>
+          <button
+            v-if="isAuthenticated"
+            @click="handleLogout"
+            class="text-gray-500 hover:text-white transition-colors p-1"
+            title="Logout"
+          >
+            <UIcon name="i-heroicons-arrow-right-on-rectangle" class="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>
@@ -144,8 +154,13 @@ const router = useRouter();
 const { connected: wsConnected, events } = useWebSocket();
 const api = useApi();
 const toast = useToast();
+const { user: authUser, isAuthenticated, logout } = useAuth();
 
-const pendingCount = ref(0);
+async function handleLogout() {
+  await logout();
+  navigateTo("/login");
+}
+
 const activeIdeasCount = ref(0);
 const recentEventsCount = computed(() => {
   // Count events from last 5 minutes
@@ -160,11 +175,13 @@ const newIdea = ref({ title: "", description: "" });
 const navItems = computed(() => [
   { path: "/", label: "Dashboard", icon: "i-heroicons-home" },
   { path: "/chat", label: "Chat", icon: "i-heroicons-chat-bubble-left-right" },
+  { path: "/news", label: "News", icon: "i-heroicons-newspaper" },
+  { path: "/crawler", label: "Crawler", icon: "i-heroicons-globe-alt" },
+  { path: "/competitors", label: "Competitors", icon: "i-heroicons-chart-bar-square" },
   { path: "/activity", label: "Activity", icon: "i-heroicons-bolt", badge: recentEventsCount.value, badgeColor: "cyan" },
   { path: "/ideas", label: "Ideas", icon: "i-heroicons-light-bulb", badge: activeIdeasCount.value, badgeColor: "yellow" },
   { path: "/projects", label: "Projects", icon: "i-heroicons-folder" },
   { path: "/tasks", label: "Tasks", icon: "i-heroicons-clipboard-document-list" },
-  { path: "/tasks/pending", label: "Pending", icon: "i-heroicons-clock", badge: pendingCount.value, badgeColor: "yellow" },
   { path: "/reports", label: "Reports", icon: "i-heroicons-chart-bar" },
   { path: "/settings", label: "Settings", icon: "i-heroicons-cog-6-tooth" },
 ]);
@@ -181,11 +198,7 @@ function isActive(path: string): boolean {
 
 async function fetchCounts() {
   try {
-    const [actions, stats] = await Promise.all([
-      api.getPendingActions(),
-      api.getStats(),
-    ]);
-    pendingCount.value = actions.length;
+    const stats = await api.getStats();
     activeIdeasCount.value = stats.activeIdeasCount || 0;
   } catch {
     // Ignore errors

@@ -14,7 +14,8 @@ export type PubSubChannel =
   | "pm:events:actions"
   | "pm:events:ideas"
   | "pm:events:chat"
-  | "pm:events:analysis";
+  | "pm:events:analysis"
+  | "pm:events:news";
 
 export abstract class BaseRepository<T> {
   protected readonly db: DatabaseSync;

@@ -221,7 +221,7 @@ async function handleIdeaGenerateCode(input) {
         // Commit and push the generated code
         try {
             await execa("git", ["add", "."], { cwd: repoPath });
-            await execa("git", ["commit", "-m", "Initial project setup by PM Agent"], { cwd: repoPath });
+            await execa("git", ["commit", "-m", "Initial project setup by Envision CEO"], { cwd: repoPath });
             await execa("git", ["push", "-u", "origin", "main"], { cwd: repoPath });
         }
         catch (gitError) {
