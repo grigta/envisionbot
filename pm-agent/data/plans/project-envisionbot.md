@@ -5,6 +5,22 @@ Generated: 2026-01-30T03:55:58.210Z
 
 ## Completed Tasks
 
+### ✅ Add unit tests for core modules (agent, store, tools) (Task #c9c927ec-8af1-46ec-87d3-ec287abd17b1)
+
+**Completed**: 2026-01-30T04:19:15.889Z
+**Type**: review
+**Priority**: critical
+
+**Description**: Add unit tests for core modules (agent, store, tools) - priority: critical
+
+**Changes**:
+The testing infrastructure is now production-ready and provides a solid foundation for maintaining code quality as the project evolves.
+
+**Files Modified**: vitest.config.ts, src/agent.test.ts, src/tools/github.test.ts, src/approval/queue.test.ts, src/auth/access-code.test.ts, .github/workflows/test.yml, tests/README.md, TESTING_SUMMARY.md, package.json
+
+---
+
+
 ### ✅ Test coverage - No tests exist currently - in_progress (Task #2fbe04ca-8f76-47a8-a203-6589edcf4b59)
 
 **Completed**: 2026-01-30T04:15:37.895Z
