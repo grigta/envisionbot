@@ -100,8 +100,8 @@ export class GitHubIssueService {
     // Title: [Task Type] Task Title
     const title = `[${task.type}] ${task.title}`;
 
-    // Body: Start with @Claude Code mention, then task details
-    const body = `@Claude Code
+    // Body: Start with @claude mention to trigger GitHub Actions workflow
+    const body = `@claude
 
 ## Description
 ${task.description}
