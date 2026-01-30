@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "codes": "tsx src/scripts/manage-codes.ts",
     "codes:create": "tsx src/scripts/manage-codes.ts create",
-    "codes:list": "tsx src/scripts/manage-codes.ts list"
+    "codes:list": "tsx src/scripts/manage-codes.ts list",
+    "migrate:github-issues": "tsx src/scripts/migrate-tasks-to-github.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",

@@ -459,3 +459,56 @@ async function gh(args: string[]): Promise<string> {
   const { stdout } = await execa("gh", args);
   return stdout;
 }
+
+/**
+ * Get GitHub Issue info (without approval queue)
+ */
+export async function getIssue(
+  repo: string,
+  issueNumber: number
+): Promise<{ state: string; title: string; url: string }> {
+  const output = await gh([
+    'issue',
+    'view',
+    String(issueNumber),
+    '--repo',
+    repo,
+    '--json',
+    'state,title,url'
+  ]);
+
+  return JSON.parse(output);
+}
+
+/**
+ * Create GitHub Issue directly (without approval queue)
+ * Used by GitHubIssueService for automatic issue creation
+ */
+export async function createIssueDirect(
+  repo: string,
+  title: string,
+  body: string,
+  labels?: string[]
+): Promise<{ success: boolean; issueNumber?: number; issueUrl?: string; error?: string }> {
+  try {
+    const args = ["issue", "create", "-R", repo, "--title", title, "--body", body, "--json", "number,url"];
+    if (labels && Array.isArray(labels)) {
+      for (const label of labels) {
+        args.push("--label", label);
+      }
+    }
+    const result = await gh(args);
+    const data = JSON.parse(result);
+
+    return {
+      success: true,
+      issueNumber: data.number,
+      issueUrl: data.url
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    };
+  }
+}

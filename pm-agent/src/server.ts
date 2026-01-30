@@ -469,13 +469,38 @@ export async function startServer(): Promise<void> {
   fastify.post<{ Params: { id: string }; Body: { status: string } }>(
     "/api/tasks/:id/status",
     async (request, reply) => {
-      const task = stateStore.updateTask(request.params.id, {
-        status: request.body.status as "completed",
-        completedAt: request.body.status === "completed" ? Date.now() : undefined,
+      const { id } = request.params;
+      const { status } = request.body;
+
+      const task = stateStore.updateTask(id, {
+        status: status as "completed",
+        completedAt: status === "completed" ? Date.now() : undefined,
       });
       if (!task) {
         return reply.status(404).send({ error: "Task not found" });
       }
+
+      // Auto-create GitHub issue when task is approved
+      if (status === "approved" && process.env.GITHUB_AUTO_CREATE_ISSUE === "true") {
+        const deps = stateStore.getRepositoryDeps();
+        if (deps) {
+          const { GitHubIssueService } = await import("./services/github-issue.service.js");
+          const { TaskRepository } = await import("./repositories/task.repository.js");
+          const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+          const taskRepo = new TaskRepository(deps);
+          const projectRepo = new ProjectRepository(deps);
+          const githubService = new GitHubIssueService(taskRepo, projectRepo);
+
+          try {
+            await githubService.createIssueForTask(id);
+            console.log(`[GitHub] Auto-created issue for task ${id}`);
+          } catch (error) {
+            console.error(`[GitHub] Failed to auto-create issue for task ${id}:`, error);
+          }
+        }
+      }
+
       return task;
     }
   );
@@ -498,6 +523,91 @@ export async function startServer(): Promise<void> {
       return task;
     }
   );
+
+  // GitHub Issue Integration - Create GitHub Issue for task
+  fastify.post<{ Params: { id: string } }>(
+    "/api/tasks/:id/create-github-issue",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { GitHubIssueService } = await import("./services/github-issue.service.js");
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+      const taskRepo = new TaskRepository(deps);
+      const projectRepo = new ProjectRepository(deps);
+      const githubService = new GitHubIssueService(taskRepo, projectRepo);
+
+      const result = await githubService.createIssueForTask(id);
+
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+
+      // Broadcast update
+      broadcast({
+        type: "task_updated",
+        timestamp: Date.now(),
+        data: { taskId: id, action: "github_issue_created" },
+      });
+
+      return reply.send(result);
+    }
+  );
+
+  // GitHub Issue Integration - Sync GitHub Issue state for task
+  fastify.post<{ Params: { id: string } }>(
+    "/api/tasks/:id/sync-github-issue",
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const deps = stateStore.getRepositoryDeps();
+      if (!deps) {
+        return reply.status(500).send({ error: "Database not initialized" });
+      }
+
+      const { GitHubIssueService } = await import("./services/github-issue.service.js");
+      const { TaskRepository } = await import("./repositories/task.repository.js");
+      const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+      const taskRepo = new TaskRepository(deps);
+      const projectRepo = new ProjectRepository(deps);
+      const githubService = new GitHubIssueService(taskRepo, projectRepo);
+
+      const result = await githubService.syncIssueState(id);
+
+      if (!result.success) {
+        return reply.status(400).send({ error: result.error });
+      }
+
+      return reply.send(result);
+    }
+  );
+
+  // GitHub Issue Integration - Sync all GitHub Issues
+  fastify.post("/api/tasks/sync-all-github-issues", async (request, reply) => {
+    const deps = stateStore.getRepositoryDeps();
+    if (!deps) {
+      return reply.status(500).send({ error: "Database not initialized" });
+    }
+
+    const { GitHubIssueService } = await import("./services/github-issue.service.js");
+    const { TaskRepository } = await import("./repositories/task.repository.js");
+    const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+    const taskRepo = new TaskRepository(deps);
+    const projectRepo = new ProjectRepository(deps);
+    const githubService = new GitHubIssueService(taskRepo, projectRepo);
+
+    const result = await githubService.syncAllTasks();
+
+    return reply.send(result);
+  });
 
   // Pending Actions (Approvals)
   fastify.get("/api/actions/pending", async () => {

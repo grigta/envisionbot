@@ -31,6 +31,12 @@ export interface Task {
   completedAt?: number;
   approvedBy?: "telegram" | "web" | "auto";
   generatedBy?: GeneratedBy;
+  // GitHub Issue Integration
+  githubIssueNumber?: number;
+  githubIssueUrl?: string;
+  githubIssueState?: "open" | "closed";
+  githubIssueCreatedAt?: number;
+  githubIssueSyncedAt?: number;
 }
 
 export type TaskType = "development" | "review" | "planning" | "maintenance" | "investigation" | "notification" | "documentation" | "security" | "improvement";
@@ -43,6 +49,14 @@ export interface SuggestedAction {
   type: "create_issue" | "comment_issue" | "create_pr" | "merge_pr" | "close_issue" | "notify" | "custom";
   description: string;
   payload: Record<string, unknown>;
+}
+
+// GitHub Issue Integration
+export interface GitHubSyncResult {
+  success: boolean;
+  issueNumber?: number;
+  issueUrl?: string;
+  error?: string;
 }
 
 // Pending action for approval

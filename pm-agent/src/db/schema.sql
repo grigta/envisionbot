@@ -52,7 +52,13 @@ CREATE TABLE IF NOT EXISTS tasks (
     approved_by TEXT CHECK (approved_by IS NULL OR approved_by IN ('telegram', 'web', 'auto')),
     generated_by TEXT CHECK (generated_by IS NULL OR generated_by IN ('health_check', 'deep_analysis', 'manual', 'chat', 'plan_sync')),
     plan_section_id TEXT,
-    plan_item_index INTEGER
+    plan_item_index INTEGER,
+    -- GitHub Issue Integration
+    github_issue_number INTEGER,
+    github_issue_url TEXT,
+    github_issue_state TEXT CHECK (github_issue_state IS NULL OR github_issue_state IN ('open', 'closed')),
+    github_issue_created_at INTEGER,
+    github_issue_synced_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
@@ -61,6 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_tasks_kanban_status ON tasks(kanban_status);
 CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
 CREATE INDEX IF NOT EXISTS idx_tasks_generated_at ON tasks(generated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_github_issue ON tasks(github_issue_number);
+CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_state ON tasks(github_issue_state);
 
 -- ============================================
 -- PENDING ACTIONS TABLE

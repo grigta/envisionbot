@@ -53,6 +53,7 @@ let deepAnalysisJob: schedule.Job | null = null;
 let newsCrawlJob: schedule.Job | null = null;
 let universalCrawlerJob: schedule.Job | null = null;
 let taskExecutorJob: schedule.Job | null = null;
+let githubIssueSyncJob: schedule.Job | null = null;
 
 export function startScheduler(): void {
   const healthCheckInterval = process.env.HEALTH_CHECK_INTERVAL || "4h";
@@ -284,6 +285,51 @@ export function startScheduler(): void {
   } else {
     console.log("🕷️ Universal crawler disabled");
   }
+
+  // Schedule GitHub issue synchronization (every 15 minutes)
+  const githubSyncEnabled = process.env.GITHUB_SYNC_ENABLED !== "false";
+
+  if (githubSyncEnabled) {
+    const githubSyncInterval = parseInt(process.env.GITHUB_SYNC_INTERVAL || "15", 10);
+    const githubSyncCron = `*/${githubSyncInterval} * * * *`; // Every N minutes
+
+    githubIssueSyncJob = schedule.scheduleJob(githubSyncCron, async () => {
+      console.log("[GitHub] Syncing GitHub issues...");
+      try {
+        const deps = stateStore.getRepositoryDeps();
+        if (!deps) {
+          console.error("Database not initialized for GitHub sync");
+          return;
+        }
+
+        const { GitHubIssueService } = await import("./services/github-issue.service.js");
+        const { TaskRepository } = await import("./repositories/task.repository.js");
+        const { ProjectRepository } = await import("./repositories/project.repository.js");
+
+        const taskRepo = new TaskRepository(deps);
+        const projectRepo = new ProjectRepository(deps);
+        const githubService = new GitHubIssueService(taskRepo, projectRepo);
+
+        const result = await githubService.syncAllTasks();
+
+        console.log(`[GitHub] ✅ Synced ${result.synced} tasks, ${result.errors} errors`);
+
+        if (result.synced > 0) {
+          broadcast({
+            type: "task_updated",
+            timestamp: Date.now(),
+            data: { action: "github_sync_complete", result },
+          });
+        }
+      } catch (error) {
+        console.error("[GitHub] ❌ Sync failed:", error);
+      }
+    });
+
+    console.log(`📅 GitHub issue sync scheduled: every ${githubSyncInterval} minutes`);
+  } else {
+    console.log("🔗 GitHub issue sync disabled");
+  }
 }
 
 export function stopScheduler(): void {
@@ -307,6 +353,10 @@ export function stopScheduler(): void {
     taskExecutorJob.cancel();
     taskExecutorJob = null;
   }
+  if (githubIssueSyncJob) {
+    githubIssueSyncJob.cancel();
+    githubIssueSyncJob = null;
+  }
   console.log("Scheduler stopped");
 }
 
@@ -317,6 +367,7 @@ export function getScheduleInfo(): {
   nextNewsCrawl?: Date;
   nextCrawlerCheck?: Date;
   nextTaskExecution?: Date;
+  nextGitHubSync?: Date;
 } {
   return {
     nextHealthCheck: healthCheckJob?.nextInvocation() ?? undefined,
@@ -324,5 +375,6 @@ export function getScheduleInfo(): {
     nextNewsCrawl: newsCrawlJob?.nextInvocation() ?? undefined,
     nextCrawlerCheck: universalCrawlerJob?.nextInvocation() ?? undefined,
     nextTaskExecution: taskExecutorJob?.nextInvocation() ?? undefined,
+    nextGitHubSync: githubIssueSyncJob?.nextInvocation() ?? undefined,
   };
 }

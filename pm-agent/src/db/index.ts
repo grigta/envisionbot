@@ -38,7 +38,7 @@ export interface Database {
   close: () => Promise<void>;
 }
 
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * Run incremental migrations
@@ -142,6 +142,34 @@ function runMigrations(sqlite: BetterSqlite3.Database, fromVersion: number): voi
     `);
 
     setSchemaVersion(sqlite, 4, "Add plan_versions table");
+  }
+
+  // Migration v4 -> v5: Add GitHub Issue fields to tasks table
+  if (fromVersion < 5) {
+    console.log("Running migration v5: Add GitHub Issue fields");
+
+    const columns = [
+      "ALTER TABLE tasks ADD COLUMN github_issue_number INTEGER",
+      "ALTER TABLE tasks ADD COLUMN github_issue_url TEXT",
+      "ALTER TABLE tasks ADD COLUMN github_issue_state TEXT CHECK (github_issue_state IS NULL OR github_issue_state IN ('open', 'closed'))",
+      "ALTER TABLE tasks ADD COLUMN github_issue_created_at INTEGER",
+      "ALTER TABLE tasks ADD COLUMN github_issue_synced_at INTEGER"
+    ];
+
+    for (const sql of columns) {
+      try {
+        sqlite.exec(sql);
+      } catch (error) {
+        // Column already exists, skip
+      }
+    }
+
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_tasks_github_issue ON tasks(github_issue_number);
+      CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_state ON tasks(github_issue_state);
+    `);
+
+    setSchemaVersion(sqlite, 5, "Add GitHub Issue fields");
   }
 }
 

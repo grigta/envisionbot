@@ -22,6 +22,11 @@ interface TaskRow {
   completed_at: number | null;
   approved_by: Task["approvedBy"] | null;
   generated_by: Task["generatedBy"] | null;
+  github_issue_number: number | null;
+  github_issue_url: string | null;
+  github_issue_state: "open" | "closed" | null;
+  github_issue_created_at: number | null;
+  github_issue_synced_at: number | null;
 }
 
 interface TaskFilter {
@@ -54,6 +59,11 @@ export class TaskRepository extends BaseRepository<Task> {
       completedAt: row.completed_at ?? undefined,
       approvedBy: row.approved_by ?? undefined,
       generatedBy: row.generated_by ?? undefined,
+      githubIssueNumber: row.github_issue_number ?? undefined,
+      githubIssueUrl: row.github_issue_url ?? undefined,
+      githubIssueState: row.github_issue_state ?? undefined,
+      githubIssueCreatedAt: row.github_issue_created_at ?? undefined,
+      githubIssueSyncedAt: row.github_issue_synced_at ?? undefined,
     };
   }
 
@@ -150,6 +160,23 @@ export class TaskRepository extends BaseRepository<Task> {
   }
 
   /**
+   * Get all tasks that have GitHub issues (for syncing)
+   * Returns tasks with open GitHub issues ordered by last sync time
+   */
+  async getTasksWithGitHubIssues(): Promise<Task[]> {
+    const sql = `
+      SELECT * FROM tasks
+      WHERE github_issue_number IS NOT NULL
+        AND github_issue_state = 'open'
+      ORDER BY github_issue_synced_at ASC NULLS FIRST
+    `;
+
+    const stmt = this.db.prepare(sql);
+    const rows = stmt.all() as TaskRow[];
+    return rows.map((row) => this.rowToTask(row));
+  }
+
+  /**
    * Update specific fields of a task
    */
   async update(id: string, updates: Partial<Task>): Promise<Task | undefined> {
@@ -165,8 +192,10 @@ export class TaskRepository extends BaseRepository<Task> {
       INSERT INTO tasks (
         id, project_id, type, priority, title, description, context,
         suggested_actions, related_issues, related_prs, status, kanban_status,
-        generated_at, completed_at, approved_by, generated_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        generated_at, completed_at, approved_by, generated_by,
+        github_issue_number, github_issue_url, github_issue_state,
+        github_issue_created_at, github_issue_synced_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         type = excluded.type,
         priority = excluded.priority,
@@ -179,7 +208,12 @@ export class TaskRepository extends BaseRepository<Task> {
         status = excluded.status,
         kanban_status = excluded.kanban_status,
         completed_at = excluded.completed_at,
-        approved_by = excluded.approved_by
+        approved_by = excluded.approved_by,
+        github_issue_number = excluded.github_issue_number,
+        github_issue_url = excluded.github_issue_url,
+        github_issue_state = excluded.github_issue_state,
+        github_issue_created_at = excluded.github_issue_created_at,
+        github_issue_synced_at = excluded.github_issue_synced_at
     `);
 
     stmt.run(
@@ -198,7 +232,12 @@ export class TaskRepository extends BaseRepository<Task> {
       task.generatedAt,
       task.completedAt ?? null,
       task.approvedBy ?? null,
-      task.generatedBy ?? null
+      task.generatedBy ?? null,
+      task.githubIssueNumber ?? null,
+      task.githubIssueUrl ?? null,
+      task.githubIssueState ?? null,
+      task.githubIssueCreatedAt ?? null,
+      task.githubIssueSyncedAt ?? null
     );
 
     await this.invalidateCache(
