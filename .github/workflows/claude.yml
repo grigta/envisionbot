@@ -42,6 +42,7 @@ jobs:
             actions: read
 
       - name: Check for changes and create PR
+        id: create-pr
         if: success()
         run: |
           # Get current branch name
@@ -108,9 +109,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge
-        if: success() && steps.claude.outputs.pr_number
+        if: success() && steps.create-pr.outputs.pr_number
         run: |
-          PR_NUMBER="${{ steps.claude.outputs.pr_number }}"
+          PR_NUMBER="${{ steps.create-pr.outputs.pr_number }}"
           gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
           echo "Auto-merge enabled for PR #$PR_NUMBER"
         env:
