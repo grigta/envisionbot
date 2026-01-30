@@ -491,19 +491,24 @@ export async function createIssueDirect(
   labels?: string[]
 ): Promise<{ success: boolean; issueNumber?: number; issueUrl?: string; error?: string }> {
   try {
-    const args = ["issue", "create", "-R", repo, "--title", title, "--body", body, "--json", "number,url"];
+    // gh issue create returns URL in plain text, not JSON
+    const args = ["issue", "create", "-R", repo, "--title", title, "--body", body];
     if (labels && Array.isArray(labels)) {
       for (const label of labels) {
         args.push("--label", label);
       }
     }
     const result = await gh(args);
-    const data = JSON.parse(result);
+
+    // Parse URL from output (e.g., "https://github.com/owner/repo/issues/123")
+    const url = result.trim();
+    const match = url.match(/\/issues\/(\d+)$/);
+    const issueNumber = match ? parseInt(match[1], 10) : undefined;
 
     return {
       success: true,
-      issueNumber: data.number,
-      issueUrl: data.url
+      issueNumber,
+      issueUrl: url
     };
   } catch (error) {
     return {

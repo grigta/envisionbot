@@ -493,10 +493,19 @@ export async function startServer(): Promise<void> {
           const githubService = new GitHubIssueService(taskRepo, projectRepo);
 
           try {
-            await githubService.createIssueForTask(id);
-            console.log(`[GitHub] Auto-created issue for task ${id}`);
+            const result = await githubService.createIssueForTask(id);
+            if (result.success) {
+              console.log(
+                `[GitHub] ✅ Created issue #${result.issueNumber} for task ${id}: ${result.issueUrl}`
+              );
+            } else {
+              console.error(`[GitHub] ❌ Failed to create issue for task ${id}: ${result.error}`);
+            }
           } catch (error) {
-            console.error(`[GitHub] Failed to auto-create issue for task ${id}:`, error);
+            console.error(
+              `[GitHub] ❌ Exception while creating issue for task ${id}:`,
+              error
+            );
           }
         }
       }
